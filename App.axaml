@@ -1,0 +1,180 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="SignatureGenerator.App"
+             RequestedThemeVariant="Default">
+
+  <Application.Resources>
+    <!-- Soft page background -->
+    <LinearGradientBrush x:Key="PrimaryBackground" StartPoint="0,0" EndPoint="0,1">
+      <GradientStop Color="#F3F7FF" Offset="0"/>
+      <GradientStop Color="#ECF2FF" Offset="1"/>
+    </LinearGradientBrush>
+
+    <!-- Palette -->
+    <SolidColorBrush x:Key="SurfaceBrush">#FFFFFFFF</SolidColorBrush>
+    <SolidColorBrush x:Key="HeadingBrush">#0E172A</SolidColorBrush>
+    <SolidColorBrush x:Key="BodyBrush">#27324A</SolidColorBrush>
+    <SolidColorBrush x:Key="BodyMutedBrush">#62708A</SolidColorBrush>
+    <SolidColorBrush x:Key="CardBorderBrush">#E3E8EF</SolidColorBrush>
+
+    <!-- Accent -->
+    <SolidColorBrush x:Key="AccentBrush">#645BFF</SolidColorBrush>
+    <SolidColorBrush x:Key="AccentBrushHover">#5148FF</SolidColorBrush>
+    <SolidColorBrush x:Key="AccentBrushPressed">#4338F3</SolidColorBrush>
+
+    <!-- Inter font from package -->
+    <FontFamily x:Key="AppFont">avares://Avalonia.Fonts.Inter/Fonts#Inter</FontFamily>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme/>
+
+    <!-- Global font via attached property -->
+    <Style Selector="Control">
+      <Setter Property="TextElement.FontFamily" Value="{DynamicResource AppFont}"/>
+    </Style>
+
+    <!-- Text defaults -->
+    <Style Selector="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}"/>
+    </Style>
+
+    <!-- Headings -->
+    <Style Selector="TextBlock.h1">
+      <Setter Property="FontSize" Value="30"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="Margin" Value="0,0,0,6"/>
+    </Style>
+
+    <Style Selector="TextBlock.subtitle">
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="Foreground" Value="{DynamicResource BodyMutedBrush}"/>
+      <Setter Property="TextAlignment" Value="Center"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="MaxWidth" Value="720"/>
+      <Setter Property="Margin" Value="0,0,0,10"/>
+    </Style>
+
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="{DynamicResource BodyMutedBrush}"/>
+    </Style>
+
+    <!-- Cards (no hover movement) -->
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="CornerRadius" Value="16"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="22"/>
+      <Setter Property="BoxShadow" Value="0 10 30 0 #22000000, 0 2 6 0 #12000000"/>
+    </Style>
+
+    <!-- Chip -->
+    <Style Selector="Border.chip">
+      <Setter Property="Background" Value="#EEF2FF"/>
+      <Setter Property="BorderBrush" Value="#D6E2FF"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="999"/>
+      <Setter Property="Padding" Value="8,4"/>
+    </Style>
+
+    <!-- ===== Buttons (no scale; high-contrast; force content color) ===== -->
+
+    <!-- Base for all buttons -->
+    <Style Selector="Button">
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="12,9"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Opacity" Value="1"/>
+      <Setter Property="Transitions">
+        <Setter.Value>
+          <Transitions>
+            <BrushTransition Property="Background" Duration="0:0:0.10"/>
+            <BrushTransition Property="BorderBrush" Duration="0:0:0.10"/>
+            <BrushTransition Property="Foreground" Duration="0:0:0.10"/>
+          </Transitions>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- Primary -->
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="TextElement.Foreground" Value="White"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="Button.primary:pointerover">
+      <Setter Property="Background" Value="{DynamicResource AccentBrushHover}"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="TextElement.Foreground" Value="White"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="Button.primary:pressed">
+      <Setter Property="Background" Value="{DynamicResource AccentBrushPressed}"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="TextElement.Foreground" Value="White"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="Button.primary:disabled">
+      <Setter Property="Background" Value="#D7DBFF"/>
+      <Setter Property="Foreground" Value="#FFFFFF"/>
+      <Setter Property="TextElement.Foreground" Value="#FFFFFF"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Opacity" Value="0.85"/>
+    </Style>
+    <Style Selector="Button.primary:focus">
+      <Setter Property="BorderBrush" Value="#C9C6FF"/>
+      <Setter Property="BorderThickness" Value="2"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="TextElement.Foreground" Value="White"/>
+    </Style>
+
+    <!-- Outline -->
+    <Style Selector="Button.outline">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}"/>
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource HeadingBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="Button.outline:pointerover">
+      <Setter Property="Background" Value="#F2F5FF"/> <!-- a bit darker than before -->
+      <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}"/>
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource HeadingBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="Button.outline:pressed">
+      <Setter Property="Background" Value="#E7EBFF"/>
+      <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}"/>
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource HeadingBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrushHover}"/>
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="Button.outline:disabled">
+      <Setter Property="Background" Value="#FBFBFE"/>
+      <Setter Property="Foreground" Value="#95A0B2"/>
+      <Setter Property="TextElement.Foreground" Value="#95A0B2"/>
+      <Setter Property="BorderBrush" Value="#E7ECF3"/>
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="Button.outline:focus">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="BorderThickness" Value="2"/>
+      <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}"/>
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource HeadingBrush}"/>
+    </Style>
+
+  </Application.Styles>
+</Application>

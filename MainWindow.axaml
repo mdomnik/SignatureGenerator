@@ -1,0 +1,103 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:svg="clr-namespace:Avalonia.Svg.Skia;assembly=Avalonia.Svg.Skia"
+        mc:Ignorable="d" d:DesignWidth="850" d:DesignHeight="850"
+        Width="850" Height="850"
+        x:Class="SignatureGenerator.MainWindow"
+        Title="SignatureGenerator">
+
+  <Grid Background="{DynamicResource PrimaryBackground}" RowDefinitions="Auto,*">
+
+    <!-- Header with centered logo -->
+    <Border Padding="28,28,28,10">
+      <Grid>
+        <svg:Svg
+          Path="avares://SignatureGenerator/Assets/Images/Logo.svg"
+          Width="220"
+          Stretch="Uniform"
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center"/>
+      </Grid>
+    </Border>
+
+
+    <!-- Main content -->
+    <ScrollViewer Grid.Row="1">
+      <StackPanel Margin="44" Spacing="22" HorizontalAlignment="Center">
+
+        <!-- Title & Subtitle -->
+        <TextBlock Classes="h1" Text="Email Signature Generator"/>
+        <TextBlock Classes="subtitle"
+                   Text="Upload your HTML template and CSV data to generate personalized email signatures for your team."/>
+
+        <!-- Upload cards -->
+        <Grid ColumnDefinitions="*,*" Width="760" HorizontalAlignment="Center" Margin="0,8,0,8">
+          <!-- HTML card -->
+          <Border Classes="card" Grid.Column="0" Margin="10">
+            <StackPanel Spacing="16" HorizontalAlignment="Center" VerticalAlignment="Center">
+              <Image Source="avares://SignatureGenerator/Assets/Images/html-icon.png"
+                     Width="40" Height="40"
+                     HorizontalAlignment="Center"/>
+              <TextBlock Text="Upload HTML Template"
+                         FontWeight="SemiBold"
+                         Foreground="{DynamicResource HeadingBrush}"
+                         HorizontalAlignment="Center"/>
+              <Button Classes="outline" Content="Choose File" Width="170" HorizontalAlignment="Center"/>
+            </StackPanel>
+          </Border>
+
+          <!-- CSV card -->
+          <Border Classes="card" Grid.Column="1" Margin="10">
+            <StackPanel Spacing="16" HorizontalAlignment="Center" VerticalAlignment="Center">
+              <Image Source="avares://SignatureGenerator/Assets/Images/csv-icon.png"
+                     Width="40" Height="40"
+                     HorizontalAlignment="Center"/>
+              <TextBlock Text="Upload CSV Data"
+                         FontWeight="SemiBold"
+                         Foreground="{DynamicResource HeadingBrush}"
+                         HorizontalAlignment="Center"/>
+              <Button Classes="outline" Content="Choose File" Width="170" HorizontalAlignment="Center"/>
+            </StackPanel>
+          </Border>
+        </Grid>
+
+        <!-- Status + Generate -->
+        <Border Classes="card" Width="760">
+          <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center" ColumnSpacing="16">
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+              <Border Classes="chip">
+                <TextBlock Text="Status" FontWeight="SemiBold" Foreground="#2A43D3"/>
+              </Border>
+              <TextBlock Text="Template: Missing" Classes="muted"/>
+              <TextBlock Text="•" Classes="muted" Margin="2,0"/>
+              <TextBlock Text="Data: Missing" Classes="muted"/>
+            </StackPanel>
+
+            <Button Grid.Column="1"
+                    Classes="primary"
+                    Content="Generate Signatures"
+                    MinWidth="220"
+                    HorizontalAlignment="Right"/>
+          </Grid>
+        </Border>
+
+        <!-- How to Use (card) -->
+        <Border Classes="card" Width="760">
+          <StackPanel Spacing="8">
+            <TextBlock Text="How to Use" FontSize="18" FontWeight="Bold"
+                       Foreground="{DynamicResource HeadingBrush}"/>
+            <TextBlock Classes="muted"
+                       Text="1. HTML Template: Use placeholders like {name}, {email}, or {title} in your HTML template."/>
+            <TextBlock Classes="muted"
+                       Text="2. CSV Data: Include columns that match your template placeholders (name, email, title, etc.)."/>
+            <TextBlock Classes="muted"
+                       Text="3. Generate: Click generate to create personalized signatures for each CSV row."/>
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</Window>
