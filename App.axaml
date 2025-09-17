@@ -1,35 +1,39 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="SignatureGenerator.App"
-             RequestedThemeVariant="Default">
+             RequestedThemeVariant="Light">
 
   <Application.Resources>
-    <!-- Soft page background -->
+    <!-- Soft, marine-ish page background (very light blue gradient) -->
     <LinearGradientBrush x:Key="PrimaryBackground" StartPoint="0,0" EndPoint="0,1">
-      <GradientStop Color="#F3F7FF" Offset="0"/>
-      <GradientStop Color="#ECF2FF" Offset="1"/>
+      <GradientStop Color="#F7FAFF" Offset="0"/>
+      <GradientStop Color="#EEF5FF" Offset="1"/>
     </LinearGradientBrush>
 
-    <!-- Palette -->
-    <SolidColorBrush x:Key="SurfaceBrush">#FFFFFFFF</SolidColorBrush>
-    <SolidColorBrush x:Key="HeadingBrush">#0E172A</SolidColorBrush>
-    <SolidColorBrush x:Key="BodyBrush">#27324A</SolidColorBrush>
-    <SolidColorBrush x:Key="BodyMutedBrush">#62708A</SolidColorBrush>
-    <SolidColorBrush x:Key="CardBorderBrush">#E3E8EF</SolidColorBrush>
+    <!-- Core palette -->
+    <SolidColorBrush x:Key="SurfaceBrush">#FFFFFFFF</SolidColorBrush>           <!-- cards / inputs -->
+    <SolidColorBrush x:Key="HeadingBrush">#0B1B3B</SolidColorBrush>             <!-- deep navy -->
+    <SolidColorBrush x:Key="BodyBrush">#1F2B45</SolidColorBrush>                <!-- readable body -->
+    <SolidColorBrush x:Key="BodyMutedBrush">#6C7A91</SolidColorBrush>           <!-- muted labels -->
+    <SolidColorBrush x:Key="CardBorderBrush">#E1E8F5</SolidColorBrush>          <!-- light blue-gray border -->
 
-    <!-- Accent -->
-    <SolidColorBrush x:Key="AccentBrush">#645BFF</SolidColorBrush>
-    <SolidColorBrush x:Key="AccentBrushHover">#5148FF</SolidColorBrush>
-    <SolidColorBrush x:Key="AccentBrushPressed">#4338F3</SolidColorBrush>
+    <!-- Accent blues (marine vibe) -->
+    <SolidColorBrush x:Key="AccentBrush">#1D4ED8</SolidColorBrush>              <!-- primary -->
+    <SolidColorBrush x:Key="AccentBrushHover">#1B44C2</SolidColorBrush>         <!-- hover -->
+    <SolidColorBrush x:Key="AccentBrushPressed">#15389F</SolidColorBrush>       <!-- pressed -->
 
-    <!-- Inter font from package -->
+    <!-- Danger (only for delete) -->
+    <SolidColorBrush x:Key="DangerBrush">#E03131</SolidColorBrush>
+    <SolidColorBrush x:Key="DangerBrushHover">#C92A2A</SolidColorBrush>
+
+    <!-- Inter font -->
     <FontFamily x:Key="AppFont">avares://Avalonia.Fonts.Inter/Fonts#Inter</FontFamily>
   </Application.Resources>
 
   <Application.Styles>
     <FluentTheme/>
 
-    <!-- Global font via attached property -->
+    <!-- Global font -->
     <Style Selector="Control">
       <Setter Property="TextElement.FontFamily" Value="{DynamicResource AppFont}"/>
     </Style>
@@ -61,7 +65,7 @@
       <Setter Property="Foreground" Value="{DynamicResource BodyMutedBrush}"/>
     </Style>
 
-    <!-- Cards (no hover movement) -->
+    <!-- Cards -->
     <Style Selector="Border.card">
       <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
       <Setter Property="CornerRadius" Value="16"/>
@@ -73,107 +77,148 @@
 
     <!-- Chip -->
     <Style Selector="Border.chip">
-      <Setter Property="Background" Value="#EEF2FF"/>
-      <Setter Property="BorderBrush" Value="#D6E2FF"/>
+      <Setter Property="Background" Value="#E8F0FF"/>
+      <Setter Property="BorderBrush" Value="#D5E2FF"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="999"/>
       <Setter Property="Padding" Value="8,4"/>
     </Style>
 
-    <!-- ===== Buttons (no scale; high-contrast; force content color) ===== -->
+    <!-- ===================== TextBox: white always, blue border feedback ===================== -->
 
-    <!-- Base for all buttons -->
+    <!-- TextBox (outer control sizing/typography) -->
+    <Style Selector="TextBox">
+      <Setter Property="Padding" Value="10,6"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}"/>
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="8"/>
+    </Style>
+
+    <!-- Inner template parts (this keeps background white on hover/focus) -->
+    <Style Selector="TextBox /template/ Border#border">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="8"/>
+    </Style>
+
+    <Style Selector="TextBox /template/ ScrollViewer#PART_ContentHost">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+    </Style>
+
+    <!-- Hover: blue border -->
+    <Style Selector="TextBox:pointerover /template/ Border#border">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <!-- Focus: darker blue, thicker border -->
+    <Style Selector="TextBox:focus /template/ Border#border">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrushHover}"/>
+      <Setter Property="BorderThickness" Value="2"/>
+    </Style>
+
+    <!-- Disabled: still white -->
+    <Style Selector="TextBox:disabled /template/ Border#border">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <!-- ===================== Buttons ===================== -->
+
+    <!-- Tiny red delete button -->
+    <Style Selector="Button.danger">
+      <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="8,4"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.danger:pointerover">
+      <Setter Property="Background" Value="{DynamicResource DangerBrushHover}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource DangerBrushHover}"/>
+    </Style>
+
+    <!-- Base Button -->
     <Style Selector="Button">
       <Setter Property="CornerRadius" Value="10"/>
-      <Setter Property="Padding" Value="12,9"/>
-      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Padding" Value="18,12"/>
+      <Setter Property="FontSize" Value="16"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
-      <Setter Property="Opacity" Value="1"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}"/>
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Transitions">
         <Setter.Value>
           <Transitions>
             <BrushTransition Property="Background" Duration="0:0:0.10"/>
             <BrushTransition Property="BorderBrush" Duration="0:0:0.10"/>
-            <BrushTransition Property="Foreground" Duration="0:0:0.10"/>
           </Transitions>
+        </Setter.Value>
+      </Setter>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate>
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="{TemplateBinding CornerRadius}"
+                    Padding="{TemplateBinding Padding}">
+              <ContentPresenter
+                Content="{TemplateBinding Content}"
+                ContentTemplate="{TemplateBinding ContentTemplate}"
+                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                RecognizesAccessKey="True"
+                TextElement.Foreground="{TemplateBinding Foreground}"
+                TextElement.FontSize="{TemplateBinding FontSize}"
+                TextElement.FontWeight="{TemplateBinding FontWeight}"/>
+            </Border>
+          </ControlTemplate>
         </Setter.Value>
       </Setter>
     </Style>
 
-    <!-- Primary -->
+    <!-- Primary (solid marine blue) -->
     <Style Selector="Button.primary">
       <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
       <Setter Property="Foreground" Value="White"/>
-      <Setter Property="TextElement.Foreground" Value="White"/>
       <Setter Property="BorderBrush" Value="Transparent"/>
       <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
     <Style Selector="Button.primary:pointerover">
       <Setter Property="Background" Value="{DynamicResource AccentBrushHover}"/>
-      <Setter Property="Foreground" Value="White"/>
-      <Setter Property="TextElement.Foreground" Value="White"/>
-      <Setter Property="BorderBrush" Value="Transparent"/>
-      <Setter Property="Opacity" Value="1"/>
-    </Style>
-    <Style Selector="Button.primary:pressed">
-      <Setter Property="Background" Value="{DynamicResource AccentBrushPressed}"/>
-      <Setter Property="Foreground" Value="White"/>
-      <Setter Property="TextElement.Foreground" Value="White"/>
-      <Setter Property="BorderBrush" Value="Transparent"/>
-      <Setter Property="Opacity" Value="1"/>
     </Style>
     <Style Selector="Button.primary:disabled">
-      <Setter Property="Background" Value="#D7DBFF"/>
-      <Setter Property="Foreground" Value="#FFFFFF"/>
-      <Setter Property="TextElement.Foreground" Value="#FFFFFF"/>
-      <Setter Property="BorderBrush" Value="Transparent"/>
-      <Setter Property="Opacity" Value="0.85"/>
-    </Style>
-    <Style Selector="Button.primary:focus">
-      <Setter Property="BorderBrush" Value="#C9C6FF"/>
-      <Setter Property="BorderThickness" Value="2"/>
-      <Setter Property="Foreground" Value="White"/>
-      <Setter Property="TextElement.Foreground" Value="White"/>
+      <Setter Property="Background" Value="#E8EDF7"/>
+      <Setter Property="Foreground" Value="#93A3C3"/>
+      <Setter Property="BorderBrush" Value="#E0E6F2"/>
     </Style>
 
     <!-- Outline -->
     <Style Selector="Button.outline">
       <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
       <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}"/>
-      <Setter Property="TextElement.Foreground" Value="{DynamicResource HeadingBrush}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Opacity" Value="1"/>
     </Style>
     <Style Selector="Button.outline:pointerover">
-      <Setter Property="Background" Value="#F2F5FF"/> <!-- a bit darker than before -->
-      <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}"/>
-      <Setter Property="TextElement.Foreground" Value="{DynamicResource HeadingBrush}"/>
+      <Setter Property="Background" Value="#F4F8FF"/>
       <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-      <Setter Property="Opacity" Value="1"/>
-    </Style>
-    <Style Selector="Button.outline:pressed">
-      <Setter Property="Background" Value="#E7EBFF"/>
-      <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}"/>
-      <Setter Property="TextElement.Foreground" Value="{DynamicResource HeadingBrush}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrushHover}"/>
-      <Setter Property="Opacity" Value="1"/>
-    </Style>
-    <Style Selector="Button.outline:disabled">
-      <Setter Property="Background" Value="#FBFBFE"/>
-      <Setter Property="Foreground" Value="#95A0B2"/>
-      <Setter Property="TextElement.Foreground" Value="#95A0B2"/>
-      <Setter Property="BorderBrush" Value="#E7ECF3"/>
-      <Setter Property="Opacity" Value="1"/>
-    </Style>
-    <Style Selector="Button.outline:focus">
-      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-      <Setter Property="BorderThickness" Value="2"/>
-      <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}"/>
-      <Setter Property="TextElement.Foreground" Value="{DynamicResource HeadingBrush}"/>
     </Style>
 
   </Application.Styles>

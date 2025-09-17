@@ -3,8 +3,8 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:svg="clr-namespace:Avalonia.Svg.Skia;assembly=Avalonia.Svg.Skia"
-        mc:Ignorable="d" d:DesignWidth="850" d:DesignHeight="850"
-        Width="850" Height="850"
+        mc:Ignorable="d" d:DesignWidth="850" d:DesignHeight="900"
+        Width="850" Height="900"
         x:Class="SignatureGenerator.MainWindow"
         Title="SignatureGenerator">
 
@@ -15,13 +15,12 @@
       <Grid>
         <svg:Svg
           Path="avares://SignatureGenerator/Assets/Images/Logo.svg"
-          Width="220"
+          Width="100"
           Stretch="Uniform"
           HorizontalAlignment="Center"
           VerticalAlignment="Center"/>
       </Grid>
     </Border>
-
 
     <!-- Main content -->
     <ScrollViewer Grid.Row="1">
@@ -44,7 +43,12 @@
                          FontWeight="SemiBold"
                          Foreground="{DynamicResource HeadingBrush}"
                          HorizontalAlignment="Center"/>
-              <Button Classes="outline" Content="Choose File" Width="170" HorizontalAlignment="Center"/>
+              <Button x:Name="ChooseHtmlButton"
+                      Classes="outline"
+                      Content="Choose HTML File"
+                      MinWidth="220"
+                      HorizontalAlignment="Center"
+                      Click="ChooseHtmlButton_OnClick"/>
             </StackPanel>
           </Border>
 
@@ -58,29 +62,103 @@
                          FontWeight="SemiBold"
                          Foreground="{DynamicResource HeadingBrush}"
                          HorizontalAlignment="Center"/>
-              <Button Classes="outline" Content="Choose File" Width="170" HorizontalAlignment="Center"/>
+              <Button x:Name="ChooseCsvButton"
+                      Classes="outline"
+                      Content="Choose CSV File"
+                      MinWidth="220"
+                      HorizontalAlignment="Center"
+                      Click="ChooseCsvButton_OnClick"/>
             </StackPanel>
           </Border>
         </Grid>
 
-        <!-- Status + Generate -->
+        <!-- Status + Primary action + Signature name + Messages -->
         <Border Classes="card" Width="760">
-          <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center" ColumnSpacing="16">
-            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-              <Border Classes="chip">
-                <TextBlock Text="Status" FontWeight="SemiBold" Foreground="#2A43D3"/>
-              </Border>
-              <TextBlock Text="Template: Missing" Classes="muted"/>
-              <TextBlock Text="•" Classes="muted" Margin="2,0"/>
-              <TextBlock Text="Data: Missing" Classes="muted"/>
-            </StackPanel>
+          <StackPanel Spacing="10">
 
-            <Button Grid.Column="1"
-                    Classes="primary"
-                    Content="Generate Signatures"
-                    MinWidth="220"
-                    HorizontalAlignment="Right"/>
-          </Grid>
+            <!-- Row: Status + CTA -->
+            <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center" ColumnSpacing="16">
+              <!-- Status area -->
+              <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <Border Classes="chip" VerticalAlignment="Center">
+                  <TextBlock Text="Status" FontWeight="SemiBold" Foreground="#2A43D3"/>
+                </Border>
+
+                <!-- Messages stacked vertically, each with a tiny delete -->
+                <StackPanel Orientation="Vertical" Spacing="6" VerticalAlignment="Center">
+                  <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock x:Name="TemplateStatusText"
+                               Text="Template: Missing"
+                               Classes="muted"
+                               VerticalAlignment="Center"/>
+                    <Button x:Name="DeleteHtmlButton"
+                            Classes="danger"
+                            Content="Delete"
+                            IsVisible="False"
+                            Click="DeleteHtmlButton_OnClick"/>
+                  </StackPanel>
+
+                  <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock x:Name="DataStatusText"
+                               Text="Data: Missing"
+                               Classes="muted"
+                               VerticalAlignment="Center"/>
+                    <Button x:Name="DeleteCsvButton"
+                            Classes="danger"
+                            Content="Delete"
+                            IsVisible="False"
+                            Click="DeleteCsvButton_OnClick"/>
+                  </StackPanel>
+                </StackPanel>
+              </StackPanel>
+
+              <!-- Single CTA that changes by state -->
+              <Button Grid.Column="1"
+                      x:Name="PrimaryActionButton"
+                      Classes="primary"
+                      Content="Generate Template"
+                      MinWidth="260"
+                      HorizontalAlignment="Right"
+                      IsEnabled="False"
+                      Click="PrimaryActionButton_OnClick"/>
+            </Grid>
+
+            <!-- Signature name input -->
+            <Grid ColumnDefinitions="Auto,*">
+              <TextBlock Text="Signature name:"
+                         VerticalAlignment="Center"
+                         Margin="0,2,8,0"
+                         Foreground="{DynamicResource HeadingBrush}"/>
+              <TextBox x:Name="SignatureNameBox"
+                       Grid.Column="1"
+                       Width="260"
+                       Watermark="e.g., Q4-2025"
+                       HorizontalAlignment="Left"
+                       FontSize="14"
+                       Padding="10,6"
+                       CornerRadius="8"
+                       Background="{DynamicResource SurfaceBrush}"
+                       BorderBrush="{DynamicResource CardBorderBrush}"
+                       BorderThickness="1"
+                       TextChanged="SignatureNameBox_OnTextChanged"/>
+
+            </Grid>
+
+            <!-- Inline message area (no popups) -->
+            <Border Background="#F8FAFF"
+                    BorderBrush="#E5EBF7"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="10"
+                    IsVisible="False"
+                    x:Name="MessageArea">
+              <TextBlock x:Name="MessageText"
+                         Text=""
+                         TextWrapping="Wrap"
+                         Foreground="{DynamicResource HeadingBrush}"/>
+            </Border>
+
+          </StackPanel>
         </Border>
 
         <!-- How to Use (card) -->
@@ -89,11 +167,11 @@
             <TextBlock Text="How to Use" FontSize="18" FontWeight="Bold"
                        Foreground="{DynamicResource HeadingBrush}"/>
             <TextBlock Classes="muted"
-                       Text="1. HTML Template: Use placeholders like {name}, {email}, or {title} in your HTML template."/>
+                       Text="1. HTML Template: Use placeholders like {{Name}}, {{Email}}, etc."/>
             <TextBlock Classes="muted"
-                       Text="2. CSV Data: Include columns that match your template placeholders (name, email, title, etc.)."/>
+                       Text="2. CSV Data: Include columns that match your template placeholders."/>
             <TextBlock Classes="muted"
-                       Text="3. Generate: Click generate to create personalized signatures for each CSV row."/>
+                       Text="3. Download Signatures: A ZIP with one HTML per CSV row."/>
           </StackPanel>
         </Border>
 
