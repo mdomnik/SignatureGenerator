@@ -1,4 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
@@ -6,23 +7,24 @@
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- Optional but handy when publishing cross-platform -->
+    <UseAppHost>true</UseAppHost>
+    <RuntimeIdentifiers>win-x64;osx-arm64;osx-x64;linux-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.3.6" />
     <PackageReference Include="Avalonia.Desktop" Version="11.3.6" />
-    <PackageReference Include="Avalonia.Svg.Skia" Version="11.3.0" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.6" />
+    <PackageReference Include="Avalonia.Svg.Skia" Version="11.3.0" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.6" />
-    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.6">
-      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
-      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
-    </PackageReference>
+    <!-- Email -->
+    <PackageReference Include="MailKit" Version="4.6.0" />
   </ItemGroup>
 
-  <!-- Only assets; DO NOT list App.axaml or MainWindow.axaml here -->
   <ItemGroup>
     <AvaloniaResource Include="Assets\Images\**" />
     <AvaloniaResource Include="Assets\Fonts\**" />
   </ItemGroup>
+
 </Project>

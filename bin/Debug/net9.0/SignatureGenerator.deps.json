@@ -10,10 +10,10 @@
         "dependencies": {
           "Avalonia": "11.3.6",
           "Avalonia.Desktop": "11.3.6",
-          "Avalonia.Diagnostics": "11.3.6",
           "Avalonia.Fonts.Inter": "11.3.6",
           "Avalonia.Svg.Skia": "11.3.0",
-          "Avalonia.Themes.Fluent": "11.3.6"
+          "Avalonia.Themes.Fluent": "11.3.6",
+          "MailKit": "4.6.0"
         },
         "runtime": {
           "SignatureGenerator.dll": {}
@@ -92,18 +92,6 @@
         }
       },
       "Avalonia.BuildServices/0.0.31": {},
-      "Avalonia.Controls.ColorPicker/11.3.6": {
-        "dependencies": {
-          "Avalonia": "11.3.6",
-          "Avalonia.Remote.Protocol": "11.3.6"
-        },
-        "runtime": {
-          "lib/net8.0/Avalonia.Controls.ColorPicker.dll": {
-            "assemblyVersion": "11.3.6.0",
-            "fileVersion": "11.3.6.0"
-          }
-        }
-      },
       "Avalonia.Desktop/11.3.6": {
         "dependencies": {
           "Avalonia": "11.3.6",
@@ -114,19 +102,6 @@
         },
         "runtime": {
           "lib/net8.0/Avalonia.Desktop.dll": {
-            "assemblyVersion": "11.3.6.0",
-            "fileVersion": "11.3.6.0"
-          }
-        }
-      },
-      "Avalonia.Diagnostics/11.3.6": {
-        "dependencies": {
-          "Avalonia": "11.3.6",
-          "Avalonia.Controls.ColorPicker": "11.3.6",
-          "Avalonia.Themes.Simple": "11.3.6"
-        },
-        "runtime": {
-          "lib/net8.0/Avalonia.Diagnostics.dll": {
             "assemblyVersion": "11.3.6.0",
             "fileVersion": "11.3.6.0"
           }
@@ -223,17 +198,6 @@
           }
         }
       },
-      "Avalonia.Themes.Simple/11.3.6": {
-        "dependencies": {
-          "Avalonia": "11.3.6"
-        },
-        "runtime": {
-          "lib/net8.0/Avalonia.Themes.Simple.dll": {
-            "assemblyVersion": "11.3.6.0",
-            "fileVersion": "11.3.6.0"
-          }
-        }
-      },
       "Avalonia.Win32/11.3.6": {
         "dependencies": {
           "Avalonia": "11.3.6",
@@ -260,6 +224,14 @@
           "lib/net8.0/Avalonia.X11.dll": {
             "assemblyVersion": "11.3.6.0",
             "fileVersion": "11.3.6.0"
+          }
+        }
+      },
+      "BouncyCastle.Cryptography/2.3.1": {
+        "runtime": {
+          "lib/net6.0/BouncyCastle.Cryptography.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.3.1.17862"
           }
         }
       },
@@ -371,11 +343,34 @@
           }
         }
       },
+      "MailKit/4.6.0": {
+        "dependencies": {
+          "MimeKit": "4.6.0"
+        },
+        "runtime": {
+          "lib/net8.0/MailKit.dll": {
+            "assemblyVersion": "4.6.0.0",
+            "fileVersion": "4.6.0.0"
+          }
+        }
+      },
       "MicroCom.Runtime/0.11.0": {
         "runtime": {
           "lib/net5.0/MicroCom.Runtime.dll": {
             "assemblyVersion": "0.11.0.0",
             "fileVersion": "0.11.0.0"
+          }
+        }
+      },
+      "MimeKit/4.6.0": {
+        "dependencies": {
+          "BouncyCastle.Cryptography": "2.3.1",
+          "System.Security.Cryptography.Pkcs": "8.0.0"
+        },
+        "runtime": {
+          "lib/net8.0/MimeKit.dll": {
+            "assemblyVersion": "4.6.0.0",
+            "fileVersion": "4.6.0.0"
           }
         }
       },
@@ -504,7 +499,27 @@
           }
         }
       },
+      "System.Formats.Asn1/8.0.0": {},
       "System.IO.Pipelines/8.0.0": {},
+      "System.Security.Cryptography.Pkcs/8.0.0": {
+        "dependencies": {
+          "System.Formats.Asn1": "8.0.0"
+        },
+        "runtime": {
+          "lib/net8.0/System.Security.Cryptography.Pkcs.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.23.53103"
+          }
+        },
+        "runtimeTargets": {
+          "runtimes/win/lib/net8.0/System.Security.Cryptography.Pkcs.dll": {
+            "rid": "win",
+            "assetType": "runtime",
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.23.53103"
+          }
+        }
+      },
       "Tmds.DBus.Protocol/0.21.2": {
         "dependencies": {
           "System.IO.Pipelines": "8.0.0"
@@ -545,26 +560,12 @@
       "path": "avalonia.buildservices/0.0.31",
       "hashPath": "avalonia.buildservices.0.0.31.nupkg.sha512"
     },
-    "Avalonia.Controls.ColorPicker/11.3.6": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-zgJFM7P7hOS9qcuSUqL2tjBFIsi03qiwAztYjtjtKjfBvLBOrVcmL5qHwjfjeLRLtjHprjMraAHtu3O2vi+51g==",
-      "path": "avalonia.controls.colorpicker/11.3.6",
-      "hashPath": "avalonia.controls.colorpicker.11.3.6.nupkg.sha512"
-    },
     "Avalonia.Desktop/11.3.6": {
       "type": "package",
       "serviceable": true,
       "sha512": "sha512-+r/3tPkf2E7rxbKYYd5bRq9vdaPCvuhf+PAKFmKqdQrzjWPSP4/Dg0VDIcgPsv+A2Tq82x67ZUJGQyhiLfsMVQ==",
       "path": "avalonia.desktop/11.3.6",
       "hashPath": "avalonia.desktop.11.3.6.nupkg.sha512"
-    },
-    "Avalonia.Diagnostics/11.3.6": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-iOGrfU/0TudsfHARpsreVt5V1oaer838IghYdgZjlOvGKmh5J1uc5GOSBmBodUpuPDE78wmdVrJZLC57qsndzg==",
-      "path": "avalonia.diagnostics/11.3.6",
-      "hashPath": "avalonia.diagnostics.11.3.6.nupkg.sha512"
     },
     "Avalonia.Fonts.Inter/11.3.6": {
       "type": "package",
@@ -615,13 +616,6 @@
       "path": "avalonia.themes.fluent/11.3.6",
       "hashPath": "avalonia.themes.fluent.11.3.6.nupkg.sha512"
     },
-    "Avalonia.Themes.Simple/11.3.6": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-MuwYjUI9qMdu7TYyJbBntWlZRJWi6QmAYhMEBEdDgiEO0yUpTiKNLpYSn+MS8Xh9Jm9N4krclBigW7FYJkqLOA==",
-      "path": "avalonia.themes.simple/11.3.6",
-      "hashPath": "avalonia.themes.simple.11.3.6.nupkg.sha512"
-    },
     "Avalonia.Win32/11.3.6": {
       "type": "package",
       "serviceable": true,
@@ -635,6 +629,13 @@
       "sha512": "sha512-6NKE1py4zbkMJg++2rMJHyjEXNo2JU0Nj9nEMnXh2gyHyfclhULIGIqmpsLvJ7Ljv1+6iLDqArCFRn+mi1hANw==",
       "path": "avalonia.x11/11.3.6",
       "hashPath": "avalonia.x11.11.3.6.nupkg.sha512"
+    },
+    "BouncyCastle.Cryptography/2.3.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-buwoISwecYke3CmgG1AQSg+sNZjJeIb93vTAtJiHZX35hP/teYMxsfg0NDXGUKjGx6BKBTNKc77O2M3vKvlXZQ==",
+      "path": "bouncycastle.cryptography/2.3.1",
+      "hashPath": "bouncycastle.cryptography.2.3.1.nupkg.sha512"
     },
     "ExCSS/4.3.0": {
       "type": "package",
@@ -678,12 +679,26 @@
       "path": "harfbuzzsharp.nativeassets.win32/8.3.1.1",
       "hashPath": "harfbuzzsharp.nativeassets.win32.8.3.1.1.nupkg.sha512"
     },
+    "MailKit/4.6.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-EJ1L2AtoO9nGZz2AKl2WGGw4pLIpkgEwzpczmZWBLqX0m33ueVA+CJYd9hg52XOvvEj+w5PVzB7yy26E0WHzKQ==",
+      "path": "mailkit/4.6.0",
+      "hashPath": "mailkit.4.6.0.nupkg.sha512"
+    },
     "MicroCom.Runtime/0.11.0": {
       "type": "package",
       "serviceable": true,
       "sha512": "sha512-MEnrZ3UIiH40hjzMDsxrTyi8dtqB5ziv3iBeeU4bXsL/7NLSal9F1lZKpK+tfBRnUoDSdtcW3KufE4yhATOMCA==",
       "path": "microcom.runtime/0.11.0",
       "hashPath": "microcom.runtime.0.11.0.nupkg.sha512"
+    },
+    "MimeKit/4.6.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-M4jddPQNSClTzHE+HnfrtN93mCXSYF8KewWUTwzXgl49ajzUh8hz/UY4CAnRQR4YJF3lBY5P+r+73VXZAGKafw==",
+      "path": "mimekit/4.6.0",
+      "hashPath": "mimekit.4.6.0.nupkg.sha512"
     },
     "ShimSkiaSharp/3.0.2": {
       "type": "package",
@@ -755,12 +770,26 @@
       "path": "svg.skia/3.0.2",
       "hashPath": "svg.skia.3.0.2.nupkg.sha512"
     },
+    "System.Formats.Asn1/8.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-AJukBuLoe3QeAF+mfaRKQb2dgyrvt340iMBHYv+VdBzCUM06IxGlvl0o/uPOS7lHnXPN6u8fFRHSHudx5aTi8w==",
+      "path": "system.formats.asn1/8.0.0",
+      "hashPath": "system.formats.asn1.8.0.0.nupkg.sha512"
+    },
     "System.IO.Pipelines/8.0.0": {
       "type": "package",
       "serviceable": true,
       "sha512": "sha512-FHNOatmUq0sqJOkTx+UF/9YK1f180cnW5FVqnQMvYUN0elp6wFzbtPSiqbo1/ru8ICp43JM1i7kKkk6GsNGHlA==",
       "path": "system.io.pipelines/8.0.0",
       "hashPath": "system.io.pipelines.8.0.0.nupkg.sha512"
+    },
+    "System.Security.Cryptography.Pkcs/8.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ULmp3xoOwNYjOYp4JZ2NK/6NdTgiN1GQXzVVN1njQ7LOZ0d0B9vyMnhyqbIi9Qw4JXj1JgCsitkTShboHRx7Eg==",
+      "path": "system.security.cryptography.pkcs/8.0.0",
+      "hashPath": "system.security.cryptography.pkcs.8.0.0.nupkg.sha512"
     },
     "Tmds.DBus.Protocol/0.21.2": {
       "type": "package",

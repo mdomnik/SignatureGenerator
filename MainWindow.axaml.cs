@@ -1,688 +1,528 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using Avalonia;
+using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Media;
+using Avalonia.Markup.Xaml;
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using MimeKit;
 
-namespace SignatureGenerator
+namespace SignatureGenerator;
+
+public partial class MainWindow : Window
 {
-    public partial class MainWindow : Window
+    public class FooterResult
     {
-        private readonly string _appDataDir;
-        private readonly string _templatesDir;
-        private readonly string _dataDir;
+        public string Email { get; set; } = "";
+        public string FullName { get; set; } = "";
+        public string FooterPath { get; set; } = "";
+    }
 
-        private string? _htmlTemplatePath;
-        private string? _csvPath;
-        private List<string> _templatePlaceholders = new();
+    private readonly ObservableCollection<FooterResult> _generatedFooters = new();
+    public ObservableCollection<string> LogLines { get; } = new();
 
-        // Parsed CSV kept in memory after validation
-        private CsvTable? _csvTable;
+    private string? _manualPath;
 
-        private enum ProcessState
+    // UI refs
+    private TextBlock? _txtHtmlPath, _txtCsvPath, _txtStatus, _txtActionHint, _txtManualPreview;
+    private RadioButton? _rbSendEmails, _rbDownloadZip, _rbAttachYes, _rbAttachNo;
+    private StackPanel? _panelEmailFields, _panelManual;
+    private Expander? _expSmtp;
+    private TextBox? _tbSubject, _tbBody, _tbSmtpHost, _tbSmtpUser, _tbSmtpPassword;
+    private NumericUpDown? _numSmtpPort;
+    private ToggleSwitch? _tgUseSsl;
+    private Border? _dropManualZone;
+    private Button? _btnRun, _btnGenerate;
+    private ProgressBar? _progress;
+    private ItemsControl? _logList;
+
+    public MainWindow()
+    {
+        InitializeComponent();
+        CacheControls();
+
+        // Fit window to current screen working area (in DIPs)
+        this.Opened += (_, __) =>
         {
-            MissingHtml,        // No HTML uploaded
-            HtmlOnly,           // HTML uploaded, CSV not uploaded
-            HtmlAndCsvInvalid,  // CSV uploaded but headers/rows invalid
-            HtmlAndCsvValid     // CSV valid and matches placeholders
+            var screen = Screens?.ScreenFromVisual(this);
+            if (screen is null) return;
+
+            var wa = screen.WorkingArea; // pixels
+            var scale = RenderScaling;   // px per DIP
+            var maxW = wa.Width / scale;
+            var maxH = wa.Height / scale;
+
+            MaxWidth  = Math.Max(600, maxW - 20);
+            MaxHeight = Math.Max(500, maxH - 20);
+            Width  = Math.Min(Width,  MaxWidth);
+            Height = Math.Min(Height, MaxHeight);
+        };
+
+        // wire drag/drop for manual picker
+        if (_dropManualZone is not null)
+        {
+            _dropManualZone.AddHandler(DragDrop.DragOverEvent, DropManualZone_OnDragOver, RoutingStrategies.Tunnel);
+            _dropManualZone.AddHandler(DragDrop.DropEvent,      DropManualZone_OnDrop,     RoutingStrategies.Tunnel);
+            _dropManualZone.PointerReleased += DropManualZone_OnPointerReleased;
         }
 
-        private ProcessState _state = ProcessState.MissingHtml;
+        if (_logList is not null) _logList.ItemsSource = LogLines;
 
-        public MainWindow()
+        UpdateStatus();
+        UpdateModeUI();
+        UpdateAttachManualUI();
+        UpdateActionButtons();
+    }
+
+    private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+    private T? Get<T>(string name) where T : Control => this.FindControl<T>(name);
+
+    private void CacheControls()
+    {
+        _txtHtmlPath = Get<TextBlock>("TxtHtmlPath");
+        _txtCsvPath = Get<TextBlock>("TxtCsvPath");
+        _txtStatus = Get<TextBlock>("TxtStatus");
+
+        _rbSendEmails = Get<RadioButton>("RbSendEmails");
+        _rbDownloadZip = Get<RadioButton>("RbDownloadZip");
+
+        _panelEmailFields = Get<StackPanel>("PanelEmailFields");
+        _expSmtp = Get<Expander>("ExpSmtp");
+
+        _rbAttachYes = Get<RadioButton>("RbAttachYes");
+        _rbAttachNo  = Get<RadioButton>("RbAttachNo");
+        _panelManual = Get<StackPanel>("PanelManual");
+        _dropManualZone = Get<Border>("DropManualZone");
+        _txtManualPreview = Get<TextBlock>("TxtManualPreview");
+
+        _tbSubject = Get<TextBox>("TbSubject");
+        _tbBody    = Get<TextBox>("TbBody");
+
+        _tbSmtpHost = Get<TextBox>("TbSmtpHost");
+        _numSmtpPort= Get<NumericUpDown>("NumSmtpPort");
+        _tgUseSsl   = Get<ToggleSwitch>("TgUseSsl");
+        _tbSmtpUser = Get<TextBox>("TbSmtpUser");
+        _tbSmtpPassword = Get<TextBox>("TbSmtpPassword");
+
+        _txtActionHint = Get<TextBlock>("TxtActionHint");
+        _btnRun = Get<Button>("BtnRun");
+        _btnGenerate = Get<Button>("BtnGenerate");
+        _progress = Get<ProgressBar>("Progress");
+        _logList = Get<ItemsControl>("LogList");
+    }
+
+    // ---------- File pickers ----------
+    private async void BtnChooseHtml_OnClick(object? s, RoutedEventArgs e)
+    {
+        var dlg = new OpenFileDialog { AllowMultiple = false };
+        dlg.Filters.Add(new FileDialogFilter { Name = "HTML", Extensions = { "html", "htm" } });
+        var files = await dlg.ShowAsync(this);
+        if (files is { Length: > 0 } && _txtHtmlPath is not null) _txtHtmlPath.Text = files[0];
+        UpdateStatus();
+    }
+
+    private async void BtnChooseCsv_OnClick(object? s, RoutedEventArgs e)
+    {
+        var dlg = new OpenFileDialog { AllowMultiple = false };
+        dlg.Filters.Add(new FileDialogFilter { Name = "CSV", Extensions = { "csv" } });
+        var files = await dlg.ShowAsync(this);
+        if (files is { Length: > 0 } && _txtCsvPath is not null) _txtCsvPath.Text = files[0];
+        UpdateStatus();
+    }
+
+    private async void BtnChooseManual_OnClick(object? s, RoutedEventArgs e)
+        => await BtnChooseManual_WithFilterAsync();
+
+    private async Task BtnChooseManual_WithFilterAsync()
+    {
+        var dlg = new OpenFileDialog { AllowMultiple = false };
+        dlg.Filters.Add(new FileDialogFilter { Name = "PDF", Extensions = { "pdf" } });
+        var files = await dlg.ShowAsync(this);
+        if (files is { Length: > 0 })
         {
-            InitializeComponent();
-
-            _appDataDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "SignatureGenerator");
-
-            _templatesDir = Path.Combine(_appDataDir, "Templates");
-            _dataDir      = Path.Combine(_appDataDir, "Data");
-
-            Directory.CreateDirectory(_templatesDir);
-            Directory.CreateDirectory(_dataDir);
-
-            UpdateUiState();
+            _manualPath = files[0];
+            if (_txtManualPreview is not null) _txtManualPreview.Text = Path.GetFileName(files[0]);
+            Log($"Manual set: {_txtManualPreview?.Text}");
         }
+    }
 
-        // ========================= Upload HTML =========================
-        private async void ChooseHtmlButton_OnClick(object? sender, RoutedEventArgs e)
+    private void UpdateStatus()
+    {
+        var templateOk = File.Exists(_txtHtmlPath?.Text ?? "");
+        var csvOk      = File.Exists(_txtCsvPath?.Text ?? "");
+        if (_txtStatus is not null)
+            _txtStatus.Text = $"Template: {(templateOk ? "OK" : "Missing")} • Data: {(csvOk ? "OK" : "Missing")}";
+
+        UpdateActionButtons();
+    }
+
+    private void UpdateActionButtons()
+    {
+        var templateOk = File.Exists(_txtHtmlPath?.Text ?? "");
+        var csvOk      = File.Exists(_txtCsvPath?.Text ?? "");
+        if (_btnGenerate is not null) _btnGenerate.IsEnabled = templateOk && csvOk;
+        if (_btnRun is not null)      _btnRun.IsEnabled = _generatedFooters.Any();
+    }
+
+    // ---------- Drag/drop for manual ----------
+    private void DropManualZone_OnDragOver(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Contains(DataFormats.FileNames))
         {
-            var ofd = new OpenFileDialog
+            var paths = e.Data.GetFileNames()?.ToArray() ?? Array.Empty<string>();
+            if (paths.Length == 1 && Path.GetExtension(paths[0]).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
             {
-                Title = "Select HTML Template",
-                AllowMultiple = false,
-                Filters =
-                {
-                    new FileDialogFilter { Name = "HTML files", Extensions = { "html", "htm" } },
-                    new FileDialogFilter { Name = "All files", Extensions = { "*" } }
-                }
-            };
-
-            var result = await ofd.ShowAsync(this);
-            if (result is null || result.Length == 0) return;
-
-            var sourcePath = result[0];
-
-            try
-            {
-                if (!File.Exists(sourcePath))
-                {
-                    ShowMessage("The selected file does not exist.", MessageKind.Error);
-                    return;
-                }
-
-                var destPath = Path.Combine(_templatesDir, Path.GetFileName(sourcePath));
-                destPath = GetUniquePath(destPath);
-                File.Copy(sourcePath, destPath, overwrite: false);
-
-                _htmlTemplatePath = destPath;
-                TemplateStatusText.Text = $"Template: {Path.GetFileName(destPath)}";
-                DeleteHtmlButton.IsVisible = true;
-
-                // Parse placeholders (double braces: {{field}})
-                _templatePlaceholders = await ExtractPlaceholdersFromHtml(destPath);
-
-                if (_templatePlaceholders.Count == 0)
-                    ShowMessage("No placeholders found in the HTML (use {{Name}}, {{Email}}, etc.).", MessageKind.Warning);
-                else
-                    ShowMessage($"Template uploaded. Detected {_templatePlaceholders.Count} field(s): {string.Join(", ", _templatePlaceholders)}", MessageKind.Success);
-
-                // Clear CSV state because headers might not match anymore
-                _csvPath = null;
-                _csvTable = null;
-                DataStatusText.Text = "Data: Missing";
-                DeleteCsvButton.IsVisible = false;
-
-                UpdateUiState();
-            }
-            catch (Exception ex)
-            {
-                ShowMessage($"Failed to import template: {ex.Message}", MessageKind.Error);
-            }
-        }
-
-        // ========================= Upload CSV =========================
-        private async void ChooseCsvButton_OnClick(object? sender, RoutedEventArgs e)
-        {
-            var ofd = new OpenFileDialog
-            {
-                Title = "Select CSV Data",
-                AllowMultiple = false,
-                Filters =
-                {
-                    new FileDialogFilter { Name = "CSV", Extensions = { "csv" } },
-                    new FileDialogFilter { Name = "All files", Extensions = { "*" } }
-                }
-            };
-
-            var result = await ofd.ShowAsync(this);
-            if (result is null || result.Length == 0) return;
-
-            var sourcePath = result[0];
-
-            try
-            {
-                if (!File.Exists(sourcePath))
-                {
-                    ShowMessage("The selected CSV does not exist.", MessageKind.Error);
-                    return;
-                }
-
-                var destPath = Path.Combine(_dataDir, Path.GetFileName(sourcePath));
-                destPath = GetUniquePath(destPath);
-                File.Copy(sourcePath, destPath, overwrite: false);
-
-                _csvPath = destPath;
-                DataStatusText.Text = $"Data: {Path.GetFileName(destPath)}";
-                DeleteCsvButton.IsVisible = true;
-
-                ValidateCsvAgainstTemplate();
-                UpdateUiState();
-            }
-            catch (Exception ex)
-            {
-                ShowMessage($"Failed to import CSV: {ex.Message}", MessageKind.Error);
+                e.DragEffects = DragDropEffects.Copy;
+                e.Handled = true;
+                return;
             }
         }
+        e.DragEffects = DragDropEffects.None;
+        e.Handled = true;
+    }
 
-        // ========================= Delete buttons =========================
-        private void DeleteHtmlButton_OnClick(object? sender, RoutedEventArgs e)
+    private void DropManualZone_OnDrop(object? sender, DragEventArgs e)
+    {
+        var paths = e.Data.GetFileNames()?.ToArray() ?? Array.Empty<string>();
+        if (paths.Length == 1 && Path.GetExtension(paths[0]).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
         {
-            try
-            {
-                if (!string.IsNullOrWhiteSpace(_htmlTemplatePath) && File.Exists(_htmlTemplatePath))
-                    File.Delete(_htmlTemplatePath);
-            }
-            catch { /* ignore */ }
+            _manualPath = paths[0];
+            if (_txtManualPreview is not null) _txtManualPreview.Text = Path.GetFileName(paths[0]);
+            Log($"Manual set: {_txtManualPreview?.Text}");
+        }
+        else
+        {
+            Log("Please drop a single .pdf file.");
+        }
+    }
 
-            _htmlTemplatePath = null;
-            _templatePlaceholders.Clear();
+    private async void DropManualZone_OnPointerReleased(object? s, PointerReleasedEventArgs e)
+        => await BtnChooseManual_WithFilterAsync();
 
-            TemplateStatusText.Text = "Template: Missing";
-            DeleteHtmlButton.IsVisible = false;
+    // ---------- Mode & Attach Manual ----------
+    private void DeliveryMode_Changed(object? s, RoutedEventArgs e) => UpdateModeUI();
+    private void AttachManual_Changed(object? s, RoutedEventArgs e) => UpdateAttachManualUI();
 
-            _csvPath = null;
-            _csvTable = null;
-            DataStatusText.Text = "Data: Missing";
-            DeleteCsvButton.IsVisible = false;
+    private void UpdateModeUI()
+    {
+        bool send = _rbSendEmails?.IsChecked == true;
 
-            ShowMessage("Template removed.", MessageKind.Info);
-            UpdateUiState();
+        if (_panelEmailFields is not null) _panelEmailFields.IsVisible = send;
+        if (_expSmtp is not null)          _expSmtp.IsVisible = send;
+
+        if (_btnRun is not null)           _btnRun.Content = send ? "Send Emails" : "Download ZIP";
+        if (_txtActionHint is not null)
+            _txtActionHint.Text = send
+                ? "Will send each recipient their HTML footer as an attachment using SMTP."
+                : "Will package all generated footers into a ZIP (manual is not included).";
+    }
+
+    private void UpdateAttachManualUI()
+    {
+        bool attach = _rbAttachYes?.IsChecked == true;
+        if (_panelManual is not null) _panelManual.IsVisible = attach;
+    }
+
+    // ---------- Generate ----------
+    private async void BtnGenerate_OnClick(object? s, RoutedEventArgs e)
+    {
+        LogLines.Clear();
+
+        var htmlPath = _txtHtmlPath?.Text;
+        var csvPath  = _txtCsvPath?.Text;
+
+        if (!File.Exists(htmlPath ?? "") || !File.Exists(csvPath ?? ""))
+        {
+            Log("Please select both an HTML template and a CSV file before generating.");
+            UpdateActionButtons();
+            return;
         }
 
-        private void DeleteCsvButton_OnClick(object? sender, RoutedEventArgs e)
+        try
         {
-            try
+            _generatedFooters.Clear();
+            UpdateActionButtons();
+
+            var template = await File.ReadAllTextAsync(htmlPath!);
+            var lines = await File.ReadAllLinesAsync(csvPath!);
+
+            if (lines.Length < 2)
             {
-                if (!string.IsNullOrWhiteSpace(_csvPath) && File.Exists(_csvPath))
-                    File.Delete(_csvPath);
-            }
-            catch { /* ignore */ }
-
-            _csvPath = null;
-            _csvTable = null;
-
-            DataStatusText.Text = "Data: Missing";
-            DeleteCsvButton.IsVisible = false;
-
-            ShowMessage("CSV removed.", MessageKind.Info);
-            UpdateUiState();
-        }
-
-        // ========================= Primary CTA =========================
-        private async void PrimaryActionButton_OnClick(object? sender, RoutedEventArgs e)
-        {
-            switch (_state)
-            {
-                case ProcessState.MissingHtml:
-                    break;
-
-                case ProcessState.HtmlOnly:
-                {
-                    if (_templatePlaceholders.Count == 0)
-                    {
-                        ShowMessage("No placeholders found to build a CSV template.", MessageKind.Warning);
-                        return;
-                    }
-
-                    var sfd = new SaveFileDialog
-                    {
-                        Title = "Save CSV Template",
-                        Filters = { new FileDialogFilter { Name = "CSV", Extensions = { "csv" } } },
-                        InitialFileName = SuggestCsvFileName()
-                    };
-                    var savePath = await sfd.ShowAsync(this);
-                    if (string.IsNullOrWhiteSpace(savePath)) return;
-
-                    try
-                    {
-                        // Export using semicolon (Excel-friendly in PL/EU)
-                        var csvHeader = BuildCsvHeader(_templatePlaceholders, ';');
-                        await File.WriteAllTextAsync(savePath, csvHeader, Encoding.UTF8);
-                        ShowMessage($"CSV template saved to: {savePath}", MessageKind.Success);
-                    }
-                    catch (Exception ex)
-                    {
-                        ShowMessage($"Failed to save CSV: {ex.Message}", MessageKind.Error);
-                    }
-                    break;
-                }
-
-                case ProcessState.HtmlAndCsvInvalid:
-                    // Disabled; message already explains issues
-                    break;
-
-                case ProcessState.HtmlAndCsvValid:
-                {
-                    // Require signature name
-                    var sigName = SignatureNameBox?.Text?.Trim();
-                    if (string.IsNullOrWhiteSpace(sigName))
-                    {
-                        ShowMessage("Please enter a Signature name before generating.", MessageKind.Warning);
-                        UpdateUiState();
-                        return;
-                    }
-
-                    if (_htmlTemplatePath is null || _csvTable is null)
-                    {
-                        ShowMessage("Internal state error: missing template or CSV.", MessageKind.Error);
-                        return;
-                    }
-
-                    var sfd = new SaveFileDialog
-                    {
-                        Title = "Save Signatures ZIP",
-                        Filters = { new FileDialogFilter { Name = "ZIP", Extensions = { "zip" } } },
-                        InitialFileName = SuggestZipFileName()
-                    };
-                    var zipPath = await sfd.ShowAsync(this);
-                    if (string.IsNullOrWhiteSpace(zipPath)) return;
-
-                    try
-                    {
-                        var htmlTemplate = await File.ReadAllTextAsync(_htmlTemplatePath, Encoding.UTF8);
-                        GenerateZipOfSignatures(zipPath, htmlTemplate, _templatePlaceholders, _csvTable, sigName);
-                        ShowMessage($"Signatures ZIP saved to: {zipPath}", MessageKind.Success);
-                    }
-                    catch (Exception ex)
-                    {
-                        ShowMessage($"Failed to generate ZIP: {ex.Message}", MessageKind.Error);
-                    }
-                    break;
-                }
-            }
-        }
-
-        private void SignatureNameBox_OnTextChanged(object? sender, TextChangedEventArgs e)
-        {
-            UpdateUiState();
-        }
-
-        // ========================= State/Validation =========================
-        private void UpdateUiState()
-        {
-            // Determine current state from files
-            if (string.IsNullOrWhiteSpace(_htmlTemplatePath))
-            {
-                _state = ProcessState.MissingHtml;
-            }
-            else if (string.IsNullOrWhiteSpace(_csvPath))
-            {
-                _state = ProcessState.HtmlOnly;
-            }
-            else
-            {
-                _state = (_csvTable != null) ? ProcessState.HtmlAndCsvValid : ProcessState.HtmlAndCsvInvalid;
-            }
-
-            // Reflect in UI + consider signature name requirement
-            switch (_state)
-            {
-                case ProcessState.MissingHtml:
-                    PrimaryActionButton.Content = "Generate Template";
-                    PrimaryActionButton.IsEnabled = false;
-                    break;
-
-                case ProcessState.HtmlOnly:
-                    PrimaryActionButton.Content = "Download CSV Template";
-                    PrimaryActionButton.IsEnabled = true;
-                    break;
-
-                case ProcessState.HtmlAndCsvInvalid:
-                    PrimaryActionButton.Content = "Fix CSV (see message)";
-                    PrimaryActionButton.IsEnabled = false;
-                    break;
-
-                case ProcessState.HtmlAndCsvValid:
-                {
-                    var hasSigName = !string.IsNullOrWhiteSpace(SignatureNameBox?.Text);
-                    PrimaryActionButton.Content = hasSigName ? "Download Signatures" : "Enter Signature Name";
-                    PrimaryActionButton.IsEnabled = hasSigName;
-                    break;
-                }
-            }
-        }
-
-        private void ValidateCsvAgainstTemplate()
-        {
-            _csvTable = null;
-
-            if (_csvPath is null)
-            {
-                ShowMessage("No CSV selected.", MessageKind.Warning);
+                Log("CSV seems empty (needs a header and at least one data row).");
                 return;
             }
 
-            if (_templatePlaceholders.Count == 0)
-            {
-                ShowMessage("No placeholders found in the HTML to validate against.", MessageKind.Warning);
-                return;
-            }
+            var headers = ParseCsvLine(lines[0]).Select(h => h.Trim()).ToArray();
+            var outDir = Path.Combine(Path.GetTempPath(), "signatures_" + DateTime.Now.ToString("yyyyMMdd_HHmmss"));
+            Directory.CreateDirectory(outDir);
 
-            try
-            {
-                var table = ReadCsv(_csvPath);
+            if (_progress is not null) { _progress.IsVisible = true; _progress.Value = 0; _progress.Maximum = lines.Length - 1; }
 
-                if (table.Headers.Count == 0)
+            for (int i = 1; i < lines.Length; i++)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i])) continue;
+                var cols = ParseCsvLine(lines[i]);
+                if (cols.Length != headers.Length)
                 {
-                    ShowMessage("CSV has no headers.", MessageKind.Error);
-                    return;
+                    Log($"Row {i}: column count mismatch, skipping.");
+                    continue;
                 }
 
-                // Exact set match (case-insensitive)
-                var templateSet = new HashSet<string>(_templatePlaceholders, StringComparer.OrdinalIgnoreCase);
-                var csvHeaderSet = new HashSet<string>(table.Headers, StringComparer.OrdinalIgnoreCase);
+                var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                for (int c = 0; c < headers.Length; c++)
+                    map[headers[c]] = cols[c];
 
-                var missing = templateSet.Except(csvHeaderSet, StringComparer.OrdinalIgnoreCase).ToList();
-                var extra   = csvHeaderSet.Except(templateSet, StringComparer.OrdinalIgnoreCase).ToList();
+                var filled = ReplacePlaceholders(template, map);
+                var safeName  = map.TryGetValue("name", out var nm) && !string.IsNullOrWhiteSpace(nm) ? nm : $"user{i}";
+                var safeEmail = map.TryGetValue("email", out var em) && !string.IsNullOrWhiteSpace(em) ? em : $"noemail{i}";
+                var fileName = $"{SanitizeFileName(safeName)}_{SanitizeFileName(safeEmail)}.html";
+                var fullPath = Path.Combine(outDir, fileName);
 
-                if (missing.Count > 0 || extra.Count > 0)
+                await File.WriteAllTextAsync(fullPath, filled, Encoding.UTF8);
+
+                _generatedFooters.Add(new FooterResult
                 {
-                    var sb = new StringBuilder();
-                    if (missing.Count > 0) sb.AppendLine("CSV is missing required columns: " + string.Join(", ", missing));
-                    if (extra.Count > 0)   sb.AppendLine("CSV has unexpected columns: " + string.Join(", ", extra));
-                    ShowMessage(sb.ToString().Trim(), MessageKind.Error);
-                    return;
-                }
+                    Email = map.TryGetValue("email", out var eaddr) ? eaddr : "",
+                    FullName = map.TryGetValue("name", out var fname) ? fname : safeName,
+                    FooterPath = fullPath
+                });
 
-                // Validate rows: all required fields present and non-empty
-                var errors = new List<string>();
-                for (int i = 0; i < table.Rows.Count; i++)
-                {
-                    var row = table.Rows[i];
-                    foreach (var req in templateSet)
-                    {
-                        if (!row.TryGetValue(req, out var val) || string.IsNullOrWhiteSpace(val))
-                            errors.Add($"Row {i + 2}: missing value for “{req}”.");
-                    }
-                }
-
-                if (errors.Count > 0)
-                {
-                    var preview = string.Join(Environment.NewLine, errors.Take(10));
-                    var suffix = (errors.Count > 10) ? $" (+{errors.Count - 10} more…)" : "";
-                    ShowMessage("CSV has empty/missing values:" + Environment.NewLine + preview + suffix, MessageKind.Error);
-                    return;
-                }
-
-                _csvTable = table;
-                ShowMessage($"CSV validated. {table.Rows.Count} row(s) ready.", MessageKind.Success);
+                if (_progress is not null) _progress.Value += 1;
             }
-            catch (Exception ex)
+
+            Log($"Generated {_generatedFooters.Count} signatures into: {outDir}");
+        }
+        catch (Exception ex)
+        {
+            Log($"Generation error: {ex.Message}");
+        }
+        finally
+        {
+            if (_progress is not null) _progress.IsVisible = false;
+            UpdateActionButtons();
+        }
+    }
+
+    // ---------- Run ----------
+    private async void BtnRun_OnClick(object? s, RoutedEventArgs e)
+    {
+        LogLines.Clear();
+        if (!_generatedFooters.Any())
+        {
+            Log("Generate footers first!");
+            UpdateActionButtons();
+            return;
+        }
+
+        if (_rbSendEmails?.IsChecked == true)
+            await SendEmailsAsync();
+        else
+            await DownloadZipAsync();
+    }
+
+    // ---------- Test SMTP ----------
+    private async void BtnTestSmtp_OnClick(object? s, RoutedEventArgs e)
+    {
+        Log("Testing SMTP connection...");
+        try
+        {
+            using var smtp = new SmtpClient();
+            var secure = _tgUseSsl?.IsChecked == true ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls;
+
+            smtp.AuthenticationMechanisms.Remove("XOAUTH2");
+
+            await smtp.ConnectAsync((_tbSmtpHost?.Text ?? "").Trim(), (int)(_numSmtpPort?.Value ?? 587), secure);
+            await smtp.AuthenticateAsync((_tbSmtpUser?.Text ?? "").Trim(),
+                                         (_tbSmtpPassword?.Text ?? "").Replace(" ", "").Trim());
+            await smtp.DisconnectAsync(true);
+
+            Log("✅ SMTP connection OK!");
+        }
+        catch (Exception ex)
+        {
+            Log($"❌ SMTP test failed: {ex.Message}");
+        }
+    }
+
+    // ---------- Send Emails ----------
+    private async Task SendEmailsAsync()
+    {
+        var host   = (_tbSmtpHost?.Text ?? "").Trim();
+        var port   = (int)(_numSmtpPort?.Value ?? 587);
+        var useSsl = _tgUseSsl?.IsChecked == true;
+        var user   = (_tbSmtpUser?.Text ?? "").Trim();
+        var pass   = (_tbSmtpPassword?.Text ?? "").Replace(" ", "").Trim();
+        var subj   = _tbSubject?.Text ?? "";
+        var body   = _tbBody?.Text ?? "";
+        var attachManual = _rbAttachYes?.IsChecked == true;
+
+        if (_progress is not null) { _progress.IsVisible = true; _progress.Value = 0; _progress.Maximum = _generatedFooters.Count; }
+
+        try
+        {
+            using var smtp = new SmtpClient();
+            var secure = useSsl ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls;
+            smtp.AuthenticationMechanisms.Remove("XOAUTH2");
+
+            await smtp.ConnectAsync(host, port, secure);
+            await smtp.AuthenticateAsync(user, pass);
+
+            foreach (var item in _generatedFooters)
             {
-                ShowMessage($"Failed to read/validate CSV: {ex.Message}", MessageKind.Error);
-            }
-        }
-
-        // ========================= CSV & ZIP helpers =========================
-        // Auto-detect delimiter (comma, semicolon, or tab)
-        private static char DetectDelimiter(string headerLine)
-        {
-            int commas = headerLine.Count(c => c == ',');
-            int semis  = headerLine.Count(c => c == ';');
-            int tabs   = headerLine.Count(c => c == '\t');
-
-            if (semis >= commas && semis >= tabs) return ';';
-            if (commas >= semis && commas >= tabs) return ',';
-            if (tabs > 0) return '\t';
-            return ','; // fallback
-        }
-
-        private static CsvTable ReadCsv(string path)
-        {
-            var lines = File.ReadAllLines(path);
-            if (lines.Length == 0) return new CsvTable();
-
-            // Header line (first non-empty)
-            var headerLineIndex = Array.FindIndex(lines, l => !string.IsNullOrWhiteSpace(l));
-            if (headerLineIndex < 0) return new CsvTable();
-
-            var headerLine = lines[headerLineIndex];
-            var delimiter  = DetectDelimiter(headerLine);
-
-            var headers = SplitSeparatedLine(headerLine, delimiter)
-                .Select(h => h.Trim())
-                .Where(h => !string.IsNullOrWhiteSpace(h))
-                .ToList();
-
-            var rows = new List<Dictionary<string, string>>();
-
-            for (int i = headerLineIndex + 1; i < lines.Length; i++)
-            {
-                var raw = lines[i];
-                if (string.IsNullOrWhiteSpace(raw)) continue;
-
-                var values = SplitSeparatedLine(raw, delimiter);
-                var row = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-                for (int c = 0; c < headers.Count; c++)
+                if (!IsDeliverableEmail(item.Email))
                 {
-                    var key = headers[c];
-                    var val = (c < values.Count) ? values[c] : "";
-                    row[key] = val?.Trim() ?? "";
+                    Log($"Skipping reserved/invalid recipient: {item.Email}");
+                    if (_progress is not null) _progress.Value += 1;
+                    continue;
                 }
 
-                rows.Add(row);
+                var msg = new MimeMessage();
+                msg.From.Add(new MailboxAddress(user, user));
+                msg.To.Add(MailboxAddress.Parse(item.Email));
+                msg.Subject = subj;
+
+                var builder = new BodyBuilder { TextBody = body };
+
+                if (File.Exists(item.FooterPath))
+                    builder.Attachments.Add(Path.GetFileName(item.FooterPath),
+                        await File.ReadAllBytesAsync(item.FooterPath),
+                        new ContentType("text", "html"));
+
+                if (attachManual && !string.IsNullOrWhiteSpace(_manualPath) && File.Exists(_manualPath))
+                    builder.Attachments.Add(Path.GetFileName(_manualPath),
+                        await File.ReadAllBytesAsync(_manualPath),
+                        new ContentType("application", "pdf"));
+
+                msg.Body = builder.ToMessageBody();
+                await smtp.SendAsync(msg);
+                Log($"Sent to {item.FullName} <{item.Email}>");
+
+                if (_progress is not null) _progress.Value += 1;
             }
 
-            return new CsvTable { Headers = headers, Rows = rows };
+            await smtp.DisconnectAsync(true);
+            Log("All emails sent.");
         }
-
-        // CSV splitter supporting quotes and commas/semicolons/tabs
-        private static List<string> SplitSeparatedLine(string line, char delimiter)
+        catch (Exception ex)
         {
-            var result = new List<string>();
-            var sb = new StringBuilder();
-            bool inQuotes = false;
-
-            for (int i = 0; i < line.Length; i++)
-            {
-                var ch = line[i];
-
-                if (inQuotes)
-                {
-                    if (ch == '"')
-                    {
-                        if (i + 1 < line.Length && line[i + 1] == '"')
-                        {
-                            sb.Append('"'); // escaped quote
-                            i++;
-                        }
-                        else
-                        {
-                            inQuotes = false;
-                        }
-                    }
-                    else
-                    {
-                        sb.Append(ch);
-                    }
-                }
-                else
-                {
-                    if (ch == delimiter)
-                    {
-                        result.Add(sb.ToString());
-                        sb.Clear();
-                    }
-                    else if (ch == '"')
-                    {
-                        inQuotes = true;
-                    }
-                    else
-                    {
-                        sb.Append(ch);
-                    }
-                }
-            }
-
-            result.Add(sb.ToString());
-            return result;
+            Log($"Send error: {ex.Message}");
         }
-
-        // Build header line with chosen separator (use ';' on export)
-        private static string BuildCsvHeader(IEnumerable<string> headers, char separator)
+        finally
         {
-            string Escape(string s)
-            {
-                bool needsQuotes = s.Contains('"') || s.Contains(separator) || s.Contains('\n') || s.Contains('\r');
-                if (!needsQuotes) return s;
-                return "\"" + s.Replace("\"", "\"\"") + "\"";
-            }
-
-            var line = string.Join(separator, headers.Select(Escape));
-            return line + Environment.NewLine;
+            if (_progress is not null) _progress.IsVisible = false;
         }
+    }
 
-        private static async System.Threading.Tasks.Task<List<string>> ExtractPlaceholdersFromHtml(string path)
+    // ---------- ZIP (manual not included) ----------
+    private async Task DownloadZipAsync()
+    {
+        var sfd = new SaveFileDialog
         {
-            var html = await File.ReadAllTextAsync(path, Encoding.UTF8);
+            Title = "Save ZIP",
+            InitialFileName = "signatures.zip",
+            Filters = new List<FileDialogFilter> { new() { Name = "ZIP", Extensions = { "zip" } } }
+        };
 
-            // Match {{placeholder}}
-            var matches = Regex.Matches(html, @"\{\{([^{}\r\n]+)\}\}");
+        var zipPath = await sfd.ShowAsync(this);
+        if (string.IsNullOrWhiteSpace(zipPath)) return;
 
-            return matches
-                .Select(m => m.Groups[1].Value.Trim())
-                .Where(s => !string.IsNullOrWhiteSpace(s))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-        }
+        if (_progress is not null) { _progress.IsVisible = true; _progress.Value = 0; _progress.Maximum = _generatedFooters.Count; }
 
-        private static string ReplacePlaceholders(string template, IReadOnlyCollection<string> placeholders, IDictionary<string, string> values)
-        {
-            var output = template;
-            foreach (var field in placeholders)
-            {
-                var token = "{{" + field + "}}"; // double-brace
-                var kv = values.FirstOrDefault(k => string.Equals(k.Key, field, StringComparison.OrdinalIgnoreCase));
-                output = output.Replace(token, kv.Value ?? string.Empty, StringComparison.Ordinal);
-            }
-            return output;
-        }
-
-        private static string MakeSafeFileName(string? s, string fallback, int index)
-        {
-            var name = string.IsNullOrWhiteSpace(s) ? $"{fallback}_{index + 1}" : s.Trim();
-            foreach (var c in Path.GetInvalidFileNameChars())
-                name = name.Replace(c, '_');
-            if (name.Length > 80) name = name[..80];
-            return name;
-        }
-
-        private void GenerateZipOfSignatures(
-            string zipPath,
-            string htmlTemplate,
-            IReadOnlyCollection<string> placeholders,
-            CsvTable table,
-            string? signatureName)
+        try
         {
             if (File.Exists(zipPath)) File.Delete(zipPath);
+            using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
 
-            var suffixRaw = string.IsNullOrWhiteSpace(signatureName) ? "signature" : signatureName!.Trim();
-
-            using var fs = new FileStream(zipPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-            using var zip = new ZipArchive(fs, ZipArchiveMode.Create, leaveOpen: false, entryNameEncoding: Encoding.UTF8);
-
-            for (int i = 0; i < table.Rows.Count; i++)
+            foreach (var item in _generatedFooters)
             {
-                var row = table.Rows[i];
-
-                // Determine prefix: prefer 'name' value; else first header; else fallback
-                string prefix;
-                if (row.TryGetValue("name", out var nameVal) && !string.IsNullOrWhiteSpace(nameVal))
-                {
-                    prefix = nameVal;
-                }
-                else
-                {
-                    var firstHeader = table.Headers.FirstOrDefault();
-                    if (!string.IsNullOrWhiteSpace(firstHeader) &&
-                        row.TryGetValue(firstHeader, out var firstVal) &&
-                        !string.IsNullOrWhiteSpace(firstVal))
-                    {
-                        prefix = firstVal;
-                    }
-                    else
-                    {
-                        prefix = $"row_{i + 1}";
-                    }
-                }
-
-                var fileBaseRaw = $"{prefix}_{suffixRaw}";
-                var content = ReplacePlaceholders(htmlTemplate, placeholders, row);
-
-                var fileBase = MakeSafeFileName(fileBaseRaw, "signature", i);
-                var fileName = fileBase.EndsWith(".html", StringComparison.OrdinalIgnoreCase)
-                    ? fileBase
-                    : fileBase + ".html";
-
-                var entry = zip.CreateEntry(fileName, CompressionLevel.Optimal);
-                using var writer = new StreamWriter(entry.Open(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-                writer.Write(content);
+                if (File.Exists(item.FooterPath))
+                    zip.CreateEntryFromFile(item.FooterPath, Path.GetFileName(item.FooterPath));
+                if (_progress is not null) _progress.Value += 1;
             }
+
+            Log($"ZIP saved: {zipPath} (manual excluded)");
         }
-
-        private string SuggestCsvFileName()
+        catch (Exception ex)
         {
-            var baseName = "template_fields.csv";
-            if (!string.IsNullOrEmpty(_htmlTemplatePath))
-            {
-                var n = Path.GetFileNameWithoutExtension(_htmlTemplatePath);
-                baseName = $"{SanitizeFileName(n)}_fields.csv";
-            }
-            return baseName;
+            Log($"ZIP error: {ex.Message}");
         }
-
-        private string SuggestZipFileName()
+        finally
         {
-            var baseName = "signatures.zip";
-            if (!string.IsNullOrEmpty(_htmlTemplatePath))
-            {
-                var n = Path.GetFileNameWithoutExtension(_htmlTemplatePath);
-                baseName = $"{SanitizeFileName(n)}_signatures.zip";
-            }
-            return baseName;
-        }
-
-        private static string SanitizeFileName(string name)
-        {
-            foreach (var c in Path.GetInvalidFileNameChars())
-                name = name.Replace(c, '_');
-            return name;
-        }
-
-        private static string GetUniquePath(string path)
-        {
-            if (!File.Exists(path)) return path;
-            var dir = Path.GetDirectoryName(path)!;
-            var name = Path.GetFileNameWithoutExtension(path);
-            var ext = Path.GetExtension(path);
-            for (int i = 1; ; i++)
-            {
-                var candidate = Path.Combine(dir, $"{name} ({i}){ext}");
-                if (!File.Exists(candidate))
-                    return candidate;
-            }
-        }
-
-        // ========================= Message area =========================
-        private enum MessageKind { Info, Success, Warning, Error }
-
-        private void ShowMessage(string text, MessageKind kind)
-        {
-            MessageText.Text = text;
-            MessageArea.IsVisible = !string.IsNullOrWhiteSpace(text);
-
-            var color = kind switch
-            {
-                MessageKind.Success => Color.FromRgb(0x22, 0x99, 0x55),
-                MessageKind.Warning => Color.FromRgb(0xCC, 0x88, 0x00),
-                MessageKind.Error   => Color.FromRgb(0xD6, 0x2F, 0x2F),
-                _                   => Color.FromRgb(0x27, 0x32, 0x4A)
-            };
-            MessageText.Foreground = new SolidColorBrush(color);
-        }
-
-        // ========================= DTO =========================
-        private sealed class CsvTable
-        {
-            public List<string> Headers { get; set; } = new();
-            public List<Dictionary<string, string>> Rows { get; set; } = new();
+            if (_progress is not null) _progress.IsVisible = false;
         }
     }
 
-    internal static class LinqSetExtensions
+    // ---------- Helpers ----------
+    private static string SanitizeFileName(string s)
     {
-        public static IEnumerable<T> Except<T>(this IEnumerable<T> first, IEnumerable<T> second, IEqualityComparer<T> comparer)
-            => System.Linq.Enumerable.Except(first, second, comparer);
+        var invalid = Path.GetInvalidFileNameChars();
+        return new string(s.Select(ch => invalid.Contains(ch) ? '_' : ch).ToArray());
     }
+
+    private static string[] ParseCsvLine(string line)
+    {
+        var result = new List<string>();
+        if (line is null) return Array.Empty<string>();
+
+        var sb = new StringBuilder();
+        bool inQuotes = false;
+
+        for (int i = 0; i < line.Length; i++)
+        {
+            char c = line[i];
+
+            if (c == '"')
+            {
+                if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                { sb.Append('"'); i++; }
+                else inQuotes = !inQuotes;
+            }
+            else if (c == ',' && !inQuotes)
+            { result.Add(sb.ToString()); sb.Clear(); }
+            else sb.Append(c);
+        }
+
+        result.Add(sb.ToString());
+        return result.ToArray();
+    }
+
+    private static string ReplacePlaceholders(string template, Dictionary<string, string> map)
+    {
+        if (string.IsNullOrEmpty(template)) return template;
+        string result = template;
+        foreach (var kv in map)
+        {
+            var pattern = @"\{" + Regex.Escape(kv.Key) + @"\}";
+            result = Regex.Replace(result, pattern, kv.Value ?? string.Empty, RegexOptions.IgnoreCase);
+        }
+        return result;
+    }
+
+    private static bool IsDeliverableEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return false;
+        try
+        {
+            var mb = MimeKit.MailboxAddress.Parse(email.Trim());
+            var domain = mb.Address.Split('@').Last().ToLowerInvariant();
+
+            if (domain is "example.com" or "example.net" or "example.org" ||
+                domain.EndsWith(".test") || domain.EndsWith(".example") ||
+                domain.EndsWith(".invalid") || domain.EndsWith(".localhost"))
+                return false;
+
+            return true;
+        }
+        catch { return false; }
+    }
+
+    private void Log(string text) => LogLines.Add($"[{DateTime.Now:HH:mm:ss}] {text}");
 }
