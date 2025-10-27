@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SignatureGenerator")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+411c83e790762a1d499a8e171c9a99155dd5558c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ed3bab516367685efee5c5be5b382a3591be3105")]
 [assembly: System.Reflection.AssemblyProductAttribute("SignatureGenerator")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SignatureGenerator")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

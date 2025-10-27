@@ -7,10 +7,13 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Layout;
+using Avalonia.Media;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
@@ -31,16 +34,21 @@ public partial class MainWindow : Window
 
     private string? _manualPath;
 
-    // UI refs
-    private TextBlock? _txtHtmlPath, _txtCsvPath, _txtStatus, _txtActionHint, _txtManualPreview;
-    private RadioButton? _rbSendEmails, _rbDownloadZip, _rbAttachYes, _rbAttachNo;
-    private StackPanel? _panelEmailFields, _panelManual;
-    private Expander? _expSmtp;
-    private TextBox? _tbSubject, _tbBody, _tbSmtpHost, _tbSmtpUser, _tbSmtpPassword;
+    // UI refs (match the latest XAML you’re using)
+    private TextBlock? _txtHtmlPath, _txtCsvPath, _txtStatus, _txtActionHint;
+    private RadioButton? _rbSendEmails, _rbDownloadZip;
+    private TextBox? _tbSubject, _tbBody;
+    private TextBox? _tbSmtpHost, _tbSmtpUser, _tbSmtpPassword;
     private NumericUpDown? _numSmtpPort;
     private ToggleSwitch? _tgUseSsl;
-    private Border? _dropManualZone;
-    private Button? _btnRun, _btnGenerate;
+    private TextBox? _tbFooterName;
+
+    // Manual section (compact row)
+    private CheckBox? _chkAttachManual;
+    private TextBox? _tbManualPath;        // display-only
+    private Button? _btnBrowseManual;
+
+    private Button? _btnRun, _btnGenerate, _btnTestSmtp;
     private ProgressBar? _progress;
     private ItemsControl? _logList;
 
@@ -49,7 +57,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         CacheControls();
 
-        // Fit window to current screen working area (in DIPs)
+        // Fit window to working area
         this.Opened += (_, __) =>
         {
             var screen = Screens?.ScreenFromVisual(this);
@@ -66,20 +74,24 @@ public partial class MainWindow : Window
             Height = Math.Min(Height, MaxHeight);
         };
 
-        // wire drag/drop for manual picker
-        if (_dropManualZone is not null)
+        // Ensure button text not clipped for the small outline “Test SMTP” button
+        if (_btnTestSmtp is not null)
         {
-            _dropManualZone.AddHandler(DragDrop.DragOverEvent, DropManualZone_OnDragOver, RoutingStrategies.Tunnel);
-            _dropManualZone.AddHandler(DragDrop.DropEvent,      DropManualZone_OnDrop,     RoutingStrategies.Tunnel);
-            _dropManualZone.PointerReleased += DropManualZone_OnPointerReleased;
+            _btnTestSmtp.MinHeight = 34;
+            _btnTestSmtp.Padding = new Thickness(16, 8);
         }
+
+        // Wire up mode/checkbox changes (if XAML didn’t already)
+        if (_rbSendEmails != null) _rbSendEmails.IsCheckedChanged += DeliveryMode_Changed;
+        if (_rbDownloadZip != null) _rbDownloadZip.IsCheckedChanged += DeliveryMode_Changed;
+        if (_chkAttachManual != null) _chkAttachManual.IsCheckedChanged += ChkAttachManual_Changed;
 
         if (_logList is not null) _logList.ItemsSource = LogLines;
 
         UpdateStatus();
         UpdateModeUI();
-        UpdateAttachManualUI();
         UpdateActionButtons();
+        ApplyManualUiState();
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
@@ -88,20 +100,13 @@ public partial class MainWindow : Window
     private void CacheControls()
     {
         _txtHtmlPath = Get<TextBlock>("TxtHtmlPath");
-        _txtCsvPath = Get<TextBlock>("TxtCsvPath");
-        _txtStatus = Get<TextBlock>("TxtStatus");
+        _txtCsvPath  = Get<TextBlock>("TxtCsvPath");
+        _txtStatus   = Get<TextBlock>("TxtStatus");
+        _txtActionHint = Get<TextBlock>("TxtActionHint");
+        _tbFooterName = Get<TextBox>("TbFooterName");
 
-        _rbSendEmails = Get<RadioButton>("RbSendEmails");
+        _rbSendEmails  = Get<RadioButton>("RbSendEmails");
         _rbDownloadZip = Get<RadioButton>("RbDownloadZip");
-
-        _panelEmailFields = Get<StackPanel>("PanelEmailFields");
-        _expSmtp = Get<Expander>("ExpSmtp");
-
-        _rbAttachYes = Get<RadioButton>("RbAttachYes");
-        _rbAttachNo  = Get<RadioButton>("RbAttachNo");
-        _panelManual = Get<StackPanel>("PanelManual");
-        _dropManualZone = Get<Border>("DropManualZone");
-        _txtManualPreview = Get<TextBlock>("TxtManualPreview");
 
         _tbSubject = Get<TextBox>("TbSubject");
         _tbBody    = Get<TextBox>("TbBody");
@@ -112,11 +117,18 @@ public partial class MainWindow : Window
         _tbSmtpUser = Get<TextBox>("TbSmtpUser");
         _tbSmtpPassword = Get<TextBox>("TbSmtpPassword");
 
-        _txtActionHint = Get<TextBlock>("TxtActionHint");
-        _btnRun = Get<Button>("BtnRun");
+        // Manual row
+        _chkAttachManual = Get<CheckBox>("ChkAttachManual");
+        _tbManualPath    = Get<TextBox>("TbManualPath");
+        _btnBrowseManual = Get<Button>("BtnBrowseManual");
+
+        // Actions
+        _btnRun      = Get<Button>("BtnRun");
         _btnGenerate = Get<Button>("BtnGenerate");
+        _btnTestSmtp = Get<Button>("BtnTestSmtp");
+
         _progress = Get<ProgressBar>("Progress");
-        _logList = Get<ItemsControl>("LogList");
+        _logList  = Get<ItemsControl>("LogList");
     }
 
     // ---------- File pickers ----------
@@ -149,8 +161,8 @@ public partial class MainWindow : Window
         if (files is { Length: > 0 })
         {
             _manualPath = files[0];
-            if (_txtManualPreview is not null) _txtManualPreview.Text = Path.GetFileName(files[0]);
-            Log($"Manual set: {_txtManualPreview?.Text}");
+            if (_tbManualPath is not null) _tbManualPath.Text = Path.GetFileName(files[0]); // show filename only
+            Log($"Manual set: {Path.GetFileName(files[0])}");
         }
     }
 
@@ -172,63 +184,71 @@ public partial class MainWindow : Window
         if (_btnRun is not null)      _btnRun.IsEnabled = _generatedFooters.Any();
     }
 
-    // ---------- Drag/drop for manual ----------
-    private void DropManualZone_OnDragOver(object? sender, DragEventArgs e)
-    {
-        if (e.Data.Contains(DataFormats.FileNames))
-        {
-            var paths = e.Data.GetFileNames()?.ToArray() ?? Array.Empty<string>();
-            if (paths.Length == 1 && Path.GetExtension(paths[0]).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
-            {
-                e.DragEffects = DragDropEffects.Copy;
-                e.Handled = true;
-                return;
-            }
-        }
-        e.DragEffects = DragDropEffects.None;
-        e.Handled = true;
-    }
-
-    private void DropManualZone_OnDrop(object? sender, DragEventArgs e)
-    {
-        var paths = e.Data.GetFileNames()?.ToArray() ?? Array.Empty<string>();
-        if (paths.Length == 1 && Path.GetExtension(paths[0]).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
-        {
-            _manualPath = paths[0];
-            if (_txtManualPreview is not null) _txtManualPreview.Text = Path.GetFileName(paths[0]);
-            Log($"Manual set: {_txtManualPreview?.Text}");
-        }
-        else
-        {
-            Log("Please drop a single .pdf file.");
-        }
-    }
-
-    private async void DropManualZone_OnPointerReleased(object? s, PointerReleasedEventArgs e)
-        => await BtnChooseManual_WithFilterAsync();
-
-    // ---------- Mode & Attach Manual ----------
-    private void DeliveryMode_Changed(object? s, RoutedEventArgs e) => UpdateModeUI();
-    private void AttachManual_Changed(object? s, RoutedEventArgs e) => UpdateAttachManualUI();
+    // ---------- Mode & Manual UI ----------
+    private void DeliveryMode_Changed(object? s, RoutedEventArgs e)
+        => UpdateModeUI();
 
     private void UpdateModeUI()
     {
         bool send = _rbSendEmails?.IsChecked == true;
 
-        if (_panelEmailFields is not null) _panelEmailFields.IsVisible = send;
-        if (_expSmtp is not null)          _expSmtp.IsVisible = send;
+        // Enable/disable email-related fields when switching to ZIP
+        SetEmailModeEnabled(send);
 
-        if (_btnRun is not null)           _btnRun.Content = send ? "Send Emails" : "Download ZIP";
+        if (_btnRun is not null) _btnRun.Content = send ? "Send Emails" : "Download ZIP";
         if (_txtActionHint is not null)
             _txtActionHint.Text = send
-                ? "Will send each recipient their HTML footer as an attachment using SMTP."
-                : "Will package all generated footers into a ZIP (manual is not included).";
+                ? "Each recipient will receive their own HTML file as an attachment."
+                : "All generated footers will be packed into a ZIP file.";
     }
 
-    private void UpdateAttachManualUI()
+    private void SetEmailModeEnabled(bool enabled)
     {
-        bool attach = _rbAttachYes?.IsChecked == true;
-        if (_panelManual is not null) _panelManual.IsVisible = attach;
+        if (_tbSubject != null) _tbSubject.IsEnabled = enabled;
+        if (_tbBody    != null) _tbBody.IsEnabled    = enabled;
+
+        if (_chkAttachManual != null)
+        {
+            _chkAttachManual.IsEnabled = enabled;
+            if (!enabled)
+            {
+                // In ZIP mode: clear and lock manual fields
+                _chkAttachManual.IsChecked = false;
+                _manualPath = null;
+                if (_tbManualPath != null) _tbManualPath.Text = "";
+            }
+        }
+
+        // Manual row: display is always read-only; browse only when both send & checked
+        ApplyManualUiState();
+
+        // SMTP controls
+        if (_tbSmtpHost != null) _tbSmtpHost.IsEnabled = enabled;
+        if (_numSmtpPort!= null) _numSmtpPort.IsEnabled= enabled;
+        if (_tgUseSsl    != null) _tgUseSsl.IsEnabled   = enabled;
+        if (_tbSmtpUser  != null) _tbSmtpUser.IsEnabled = enabled;
+        if (_tbSmtpPassword != null) _tbSmtpPassword.IsEnabled = enabled;
+        if (_btnTestSmtp != null) _btnTestSmtp.IsEnabled = enabled;
+    }
+
+    private void ChkAttachManual_Changed(object? s, RoutedEventArgs e) => ApplyManualUiState();
+
+    private void ApplyManualUiState()
+    {
+        bool send = _rbSendEmails?.IsChecked == true;
+        bool attach = _chkAttachManual?.IsChecked == true;
+
+        // Display-only textbox stays non-interactive
+        if (_tbManualPath != null)
+        {
+            _tbManualPath.IsReadOnly = true;
+            _tbManualPath.IsHitTestVisible = false;
+            _tbManualPath.Focusable = false;
+            _tbManualPath.IsTabStop = false;
+        }
+
+        if (_btnBrowseManual != null)
+            _btnBrowseManual.IsEnabled = send && attach;
     }
 
     // ---------- Generate ----------
@@ -256,12 +276,12 @@ public partial class MainWindow : Window
 
             if (lines.Length < 2)
             {
-                Log("CSV seems empty (needs a header and at least one data row).");
+                Log("The CSV file appears to be empty (requires header + at least one data row).");
                 return;
             }
 
             var headers = ParseCsvLine(lines[0]).Select(h => h.Trim()).ToArray();
-            var outDir = Path.Combine(Path.GetTempPath(), "signatures_" + DateTime.Now.ToString("yyyyMMdd_HHmmss"));
+            var outDir = Path.Combine(Path.GetTempPath(), "footers_" + DateTime.Now.ToString("yyyyMMdd_HHmmss"));
             Directory.CreateDirectory(outDir);
 
             if (_progress is not null) { _progress.IsVisible = true; _progress.Value = 0; _progress.Maximum = lines.Length - 1; }
@@ -272,7 +292,7 @@ public partial class MainWindow : Window
                 var cols = ParseCsvLine(lines[i]);
                 if (cols.Length != headers.Length)
                 {
-                    Log($"Row {i}: column count mismatch, skipping.");
+                    Log($"Row {i}: mismatched number of columns – skipping.");
                     continue;
                 }
 
@@ -283,7 +303,11 @@ public partial class MainWindow : Window
                 var filled = ReplacePlaceholders(template, map);
                 var safeName  = map.TryGetValue("name", out var nm) && !string.IsNullOrWhiteSpace(nm) ? nm : $"user{i}";
                 var safeEmail = map.TryGetValue("email", out var em) && !string.IsNullOrWhiteSpace(em) ? em : $"noemail{i}";
-                var fileName = $"{SanitizeFileName(safeName)}_{SanitizeFileName(safeEmail)}.html";
+                var footerBase = _tbFooterName?.Text?.Trim();
+                if (string.IsNullOrWhiteSpace(footerBase))
+                    footerBase = "Signature"; // fallback default
+
+                var fileName = $"{SanitizeFileName(footerBase)}({SanitizeFileName(safeEmail)}).html";
                 var fullPath = Path.Combine(outDir, fileName);
 
                 await File.WriteAllTextAsync(fullPath, filled, Encoding.UTF8);
@@ -298,7 +322,7 @@ public partial class MainWindow : Window
                 if (_progress is not null) _progress.Value += 1;
             }
 
-            Log($"Generated {_generatedFooters.Count} signatures into: {outDir}");
+            Log($"Generated {_generatedFooters.Count} footers in: {outDir}");
         }
         catch (Exception ex)
         {
@@ -317,7 +341,7 @@ public partial class MainWindow : Window
         LogLines.Clear();
         if (!_generatedFooters.Any())
         {
-            Log("Generate footers first!");
+            Log("Generate footers first.");
             UpdateActionButtons();
             return;
         }
@@ -331,7 +355,7 @@ public partial class MainWindow : Window
     // ---------- Test SMTP ----------
     private async void BtnTestSmtp_OnClick(object? s, RoutedEventArgs e)
     {
-        Log("Testing SMTP connection...");
+        Log("Testing SMTP connection…");
         try
         {
             using var smtp = new SmtpClient();
@@ -344,7 +368,7 @@ public partial class MainWindow : Window
                                          (_tbSmtpPassword?.Text ?? "").Replace(" ", "").Trim());
             await smtp.DisconnectAsync(true);
 
-            Log("✅ SMTP connection OK!");
+            Log("✅ SMTP connection successful.");
         }
         catch (Exception ex)
         {
@@ -352,7 +376,7 @@ public partial class MainWindow : Window
         }
     }
 
-    // ---------- Send Emails ----------
+    // ---------- Email send ----------
     private async Task SendEmailsAsync()
     {
         var host   = (_tbSmtpHost?.Text ?? "").Trim();
@@ -362,7 +386,7 @@ public partial class MainWindow : Window
         var pass   = (_tbSmtpPassword?.Text ?? "").Replace(" ", "").Trim();
         var subj   = _tbSubject?.Text ?? "";
         var body   = _tbBody?.Text ?? "";
-        var attachManual = _rbAttachYes?.IsChecked == true;
+        var attachManual = _chkAttachManual?.IsChecked == true;
 
         if (_progress is not null) { _progress.IsVisible = true; _progress.Value = 0; _progress.Maximum = _generatedFooters.Count; }
 
@@ -379,11 +403,32 @@ public partial class MainWindow : Window
             {
                 if (!IsDeliverableEmail(item.Email))
                 {
-                    Log($"Skipping reserved/invalid recipient: {item.Email}");
+                    Log($"Skipping test/invalid address: {item.Email}");
                     if (_progress is not null) _progress.Value += 1;
                     continue;
                 }
 
+                // --- Create per-user ZIP file ---
+                var footerBase = _tbFooterName?.Text?.Trim();
+                if (string.IsNullOrWhiteSpace(footerBase))
+                    footerBase = "Signature";
+
+                var zipName = $"{SanitizeFileName(footerBase)}({SanitizeFileName(item.Email)}).zip";
+                var tempZip = Path.Combine(Path.GetTempPath(), zipName);
+
+                if (File.Exists(tempZip))
+                    File.Delete(tempZip);
+
+                using (var zip = ZipFile.Open(tempZip, ZipArchiveMode.Create))
+                {
+                    if (File.Exists(item.FooterPath))
+                        zip.CreateEntryFromFile(item.FooterPath, Path.GetFileName(item.FooterPath));
+
+                    if (attachManual && !string.IsNullOrWhiteSpace(_manualPath) && File.Exists(_manualPath))
+                        zip.CreateEntryFromFile(_manualPath, Path.GetFileName(_manualPath));
+                }
+
+                // --- Compose message ---
                 var msg = new MimeMessage();
                 msg.From.Add(new MailboxAddress(user, user));
                 msg.To.Add(MailboxAddress.Parse(item.Email));
@@ -391,25 +436,21 @@ public partial class MainWindow : Window
 
                 var builder = new BodyBuilder { TextBody = body };
 
-                if (File.Exists(item.FooterPath))
-                    builder.Attachments.Add(Path.GetFileName(item.FooterPath),
-                        await File.ReadAllBytesAsync(item.FooterPath),
-                        new ContentType("text", "html"));
-
-                if (attachManual && !string.IsNullOrWhiteSpace(_manualPath) && File.Exists(_manualPath))
-                    builder.Attachments.Add(Path.GetFileName(_manualPath),
-                        await File.ReadAllBytesAsync(_manualPath),
-                        new ContentType("application", "pdf"));
+                // Attach ZIP instead of raw HTML
+                builder.Attachments.Add(zipName,
+                    await File.ReadAllBytesAsync(tempZip),
+                    new ContentType("application", "zip"));
 
                 msg.Body = builder.ToMessageBody();
+
                 await smtp.SendAsync(msg);
-                Log($"Sent to {item.FullName} <{item.Email}>");
+                Log($"Sent ZIP to: {item.FullName} <{item.Email}>");
 
                 if (_progress is not null) _progress.Value += 1;
             }
 
             await smtp.DisconnectAsync(true);
-            Log("All emails sent.");
+            Log("All messages sent.");
         }
         catch (Exception ex)
         {
@@ -421,13 +462,13 @@ public partial class MainWindow : Window
         }
     }
 
-    // ---------- ZIP (manual not included) ----------
+    // ---------- ZIP (no manual in ZIP) ----------
     private async Task DownloadZipAsync()
     {
         var sfd = new SaveFileDialog
         {
             Title = "Save ZIP",
-            InitialFileName = "signatures.zip",
+            InitialFileName = "footers.zip",
             Filters = new List<FileDialogFilter> { new() { Name = "ZIP", Extensions = { "zip" } } }
         };
 
@@ -448,11 +489,11 @@ public partial class MainWindow : Window
                 if (_progress is not null) _progress.Value += 1;
             }
 
-            Log($"ZIP saved: {zipPath} (manual excluded)");
+            Log($"Saved ZIP: {zipPath} (without manual).");
         }
         catch (Exception ex)
         {
-            Log($"ZIP error: {ex.Message}");
+            Log($"ZIP save error: {ex.Message}");
         }
         finally
         {

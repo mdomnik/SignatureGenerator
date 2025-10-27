@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "OVxBP35dmts=",
+  "dgSpecHash": "mGDlv9fYCVI=",
   "success": true,
-  "projectFilePath": "C:\\Users\\mdomn\\work\\footers\\SignatureGenerator\\SignatureGenerator\\SignatureGenerator.csproj",
+  "projectFilePath": "C:\\Users\\mdomn\\TaskZone\\NCFootersProgram\\SignatureGeneratorProgram\\SignatureGenerator\\SignatureGenerator.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\mdomn\\.nuget\\packages\\avalonia\\11.3.6\\avalonia.11.3.6.nupkg.sha512",
     "C:\\Users\\mdomn\\.nuget\\packages\\avalonia.angle.windows.natives\\2.1.25547.20250602\\avalonia.angle.windows.natives.2.1.25547.20250602.nupkg.sha512",

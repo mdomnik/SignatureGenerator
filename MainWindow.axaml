@@ -5,170 +5,232 @@
         xmlns:svg="clr-namespace:Avalonia.Svg.Skia;assembly=Avalonia.Svg.Skia"
         mc:Ignorable="d"
         x:Class="SignatureGenerator.MainWindow"
-        Title="SignatureGenerator"
-        Width="740" Height="760"
-        MinWidth="640" MinHeight="560"
+        Title="Email Signature Generator"
+        Width="1280" Height="760"
+        MinWidth="1180" MinHeight="680"
         WindowStartupLocation="CenterScreen">
 
+  <!-- 🌿 Global styles -->
+  <Window.Styles>
+    <Style Selector="Button">
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="Padding" Value="16,10"/>
+      <Setter Property="MinHeight" Value="38"/>
+    </Style>
+
+    <Style Selector="Button.primary">
+      <Setter Property="Padding" Value="20,12"/>
+      <Setter Property="MinHeight" Value="42"/>
+    </Style>
+
+    <Style Selector="Button.outline">
+      <Setter Property="Padding" Value="16,8"/>
+      <Setter Property="MinHeight" Value="34"/>
+    </Style>
+  </Window.Styles>
+
   <Grid Background="{DynamicResource PrimaryBackground}">
-    <ScrollViewer>
-      <Viewbox Stretch="Uniform" StretchDirection="DownOnly">
-        <Grid Width="840">
-          <StackPanel Margin="36" Spacing="22" HorizontalAlignment="Center">
+    <Grid Margin="22" ColumnDefinitions="560,*" ColumnSpacing="26">
 
-            <!-- ✅ Logo now scrolls with content -->
-            <Border Padding="20,20,20,8">
-              <Grid>
-                <svg:Svg Path="avares://SignatureGenerator/Assets/Images/Logo.svg"
-                         Width="200"
-                         Stretch="Uniform"
-                         HorizontalAlignment="Center"
-                         VerticalAlignment="Center"/>
-              </Grid>
-            </Border>
+      <!-- LEFT COLUMN -->
+      <Grid RowDefinitions="Auto,16,Auto,16,Auto,16,*">
 
-            <!-- Title & Subtitle -->
-            <TextBlock Classes="h1" Text="Email Signature Generator"/>
-            <TextBlock Classes="subtitle"
-                       Text="Upload your HTML template and CSV data to generate personalized email signatures for your team."/>
+        <!-- Logo + Title/Sub -->
+        <Border Classes="card" Padding="18" BorderThickness="0" Background="{DynamicResource PrimaryBackground}">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="h1" Text="Email Signature Generator"/>
+              <TextBlock Classes="subtitle"
+                         Text="Upload an HTML and CSV file, generate signatures, and send them by email."/>
+            </StackPanel>
+        </Border>
 
-            <!-- Upload cards -->
-            <Grid ColumnDefinitions="*,*" Width="760" HorizontalAlignment="Center" Margin="0,8,0,8">
-              <Border Classes="card" Grid.Column="0" Margin="10">
-                <StackPanel Spacing="16" HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <Image Source="avares://SignatureGenerator/Assets/Images/html-icon.png" Width="40" Height="40"/>
-                  <TextBlock Text="Upload HTML Template" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-                  <Button x:Name="BtnChooseHtml" Classes="outline" Content="Choose File" Width="170" Click="BtnChooseHtml_OnClick"/>
-                  <TextBlock x:Name="TxtHtmlPath" Classes="muted" Text="No file chosen" TextWrapping="Wrap" MaxWidth="620"/>
-                </StackPanel>
-              </Border>
+        <!-- Uploads -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="22">
+          <!-- HTML -->
+          <Border Classes="card" Padding="18" Grid.Column="0">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Upload HTML Template" FontWeight="SemiBold"/>
+              <TextBlock x:Name="TxtHtmlPath" Classes="muted"
+                         Text="No file selected" TextWrapping="Wrap"/>
+              <Button x:Name="BtnChooseHtml"
+                      Classes="outline" Content="Choose…"
+                      Width="160"
+                      HorizontalAlignment="Left"
+                      Click="BtnChooseHtml_OnClick"/>
+            </StackPanel>
+          </Border>
 
-              <Border Classes="card" Grid.Column="1" Margin="10">
-                <StackPanel Spacing="16" HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <Image Source="avares://SignatureGenerator/Assets/Images/csv-icon.png" Width="40" Height="40"/>
-                  <TextBlock Text="Upload CSV Data" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-                  <Button x:Name="BtnChooseCsv" Classes="outline" Content="Choose File" Width="170" Click="BtnChooseCsv_OnClick"/>
-                  <TextBlock x:Name="TxtCsvPath" Classes="muted" Text="No file chosen" TextWrapping="Wrap" MaxWidth="620"/>
-                </StackPanel>
-              </Border>
-            </Grid>
-
-            <!-- Status -->
-            <Border Classes="card" Width="760">
-              <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center" ColumnSpacing="16">
-                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                  <Border Classes="chip">
-                    <TextBlock Text="Status" FontWeight="SemiBold" Foreground="#2A43D3"/>
-                  </Border>
-                  <TextBlock x:Name="TxtStatus" Text="Template: Missing • Data: Missing" Classes="muted"/>
-                </StackPanel>
-                <Button Grid.Column="1" x:Name="BtnGenerate"
-                        Classes="primary" Content="Generate Signatures"
-                        MinWidth="220" HorizontalAlignment="Right"
-                        Click="BtnGenerate_OnClick"/>
-              </Grid>
-            </Border>
-
-            <!-- Delivery Options -->
-            <Border Classes="card" Width="760">
-              <StackPanel Spacing="14">
-                <TextBlock Text="Delivery Options" FontSize="18" FontWeight="Bold"/>
-
-                <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="16">
-                  <RadioButton x:Name="RbSendEmails"
-                               Content="Send out footers (email)"
-                               IsChecked="True"
-                               GroupName="DeliveryMode"
-                               IsCheckedChanged="DeliveryMode_Changed"/>
-                  <RadioButton x:Name="RbDownloadZip"
-                               Grid.Column="1"
-                               Content="Download ZIP file"
-                               GroupName="DeliveryMode"
-                               IsCheckedChanged="DeliveryMode_Changed"/>
-                </Grid>
-
-                <!-- Email settings -->
-                <StackPanel x:Name="PanelEmailFields" Spacing="8">
-                  <TextBlock Text="Email Subject" Classes="muted"/>
-                  <TextBox x:Name="TbSubject" Watermark="Subject" Text="Your new email signature"/>
-
-                  <TextBlock Text="Email Body" Classes="muted" Margin="0,6,0,0"/>
-                  <TextBox x:Name="TbBody" AcceptsReturn="True" MinHeight="120"
-                           Text="Hi,&#10;&#10;Please find attached your personalized email signature (HTML).&#10;&#10;Best,&#10;IT"/>
-
-                  <!-- Attach manual? -->
-                  <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="16" Margin="0,6,0,0">
-                    <TextBlock Text="Attach manual?" Classes="muted" VerticalAlignment="Center"/>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
-                      <RadioButton x:Name="RbAttachYes" Content="Yes" GroupName="AttachManual" IsChecked="False" IsCheckedChanged="AttachManual_Changed"/>
-                      <RadioButton x:Name="RbAttachNo"  Content="No"  GroupName="AttachManual" IsChecked="True"  IsCheckedChanged="AttachManual_Changed"/>
-                    </StackPanel>
-                  </Grid>
-
-                  <!-- Manual picker (shown only when Yes) -->
-                  <StackPanel x:Name="PanelManual" Spacing="8" IsVisible="False">
-                    <TextBlock Text="Manual (PDF)" Classes="muted"/>
-                    <Border x:Name="DropManualZone"
-                            BorderThickness="2" BorderBrush="#C9D4FF"
-                            CornerRadius="8" Background="#F8FAFF"
-                            Padding="12" Tag=".pdf">
-                      <StackPanel Spacing="4">
-                        <TextBlock Text="Drop a PDF here or click to browse…"/>
-                        <TextBlock x:Name="TxtManualPreview" Classes="muted" Text="No file selected"/>
-                      </StackPanel>
-                    </Border>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                      <Button x:Name="BtnBrowseManual" Classes="outline" Width="110"
-                              Content="Browse…" Click="BtnChooseManual_OnClick"/>
-                    </StackPanel>
-                  </StackPanel>
-
-                  <!-- SMTP Settings -->
-                  <Expander x:Name="ExpSmtp" Header="SMTP Settings">
-                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto"
-                          ColumnSpacing="16" RowSpacing="8" Margin="0,8,0,0">
-                      <TextBlock Grid.Row="0" Grid.Column="0" Text="SMTP Host" Classes="muted"/>
-                      <TextBox Grid.Row="0" Grid.Column="1" x:Name="TbSmtpHost" Watermark="smtp.company.com" Text="smtp.office365.com"/>
-
-                      <TextBlock Grid.Row="1" Grid.Column="0" Text="SMTP Port" Classes="muted"/>
-                      <NumericUpDown Grid.Row="1" Grid.Column="1" x:Name="NumSmtpPort" Minimum="1" Maximum="65535" Value="587"/>
-
-                      <TextBlock Grid.Row="2" Grid.Column="0" Text="Use SSL/TLS" Classes="muted"/>
-                      <ToggleSwitch Grid.Row="2" Grid.Column="1" x:Name="TgUseSsl" IsChecked="False"/>
-
-                      <TextBlock Grid.Row="3" Grid.Column="0" Text="Username" Classes="muted"/>
-                      <TextBox Grid.Row="3" Grid.Column="1" x:Name="TbSmtpUser"/>
-
-                      <TextBlock Grid.Row="4" Grid.Column="0" Text="Password" Classes="muted"/>
-                      <TextBox Grid.Row="4" Grid.Column="1" x:Name="TbSmtpPassword" Watermark="Password"/>
-                    </Grid>
-                  </Expander>
-                </StackPanel>
-
-                <!-- Run buttons -->
-                <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-                  <TextBlock x:Name="TxtActionHint" Text="Will send each recipient their HTML footer as an attachment using SMTP." Classes="muted" VerticalAlignment="Center"/>
-                  <Button Grid.Column="1" x:Name="BtnRun"
-                          Classes="primary" Content="Send Emails"
-                          MinWidth="220" Click="BtnRun_OnClick"/>
-                </Grid>
-
-                <ProgressBar x:Name="Progress" Minimum="0" Maximum="100" Value="0" IsVisible="False"/>
-                <ItemsControl x:Name="LogList">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <TextBlock Text="{Binding}" Classes="muted"/>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-
-                <!-- Test SMTP -->
-                <Button Classes="outline" Content="Test SMTP Connection" Click="BtnTestSmtp_OnClick"/>
-              </StackPanel>
-            </Border>
-          </StackPanel>
+          <!-- CSV -->
+          <Border Classes="card" Padding="18" Grid.Column="1">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Upload CSV Data" FontWeight="SemiBold"/>
+              <TextBlock x:Name="TxtCsvPath" Classes="muted"
+                         Text="No file selected" TextWrapping="Wrap"/>
+              <Button x:Name="BtnChooseCsv"
+                      Classes="outline" Content="Choose…"
+                      Width="160"
+                      HorizontalAlignment="Left"
+                      Click="BtnChooseCsv_OnClick"/>
+            </StackPanel>
+          </Border>
         </Grid>
-      </Viewbox>
-    </ScrollViewer>
+
+        <!-- Footer name + Generate -->
+        <Border Grid.Row="4" Classes="card" Padding="14">
+          <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" VerticalAlignment="Center">
+            <!-- Footer name -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <TextBlock Text="Signature name:" Classes="muted" VerticalAlignment="Center"/>
+              <TextBox x:Name="TbFooterName"
+                       Width="200"
+                       Watermark="e.g. NewSignature"
+                       VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Generate -->
+            <Button Grid.Column="1"
+                    x:Name="BtnGenerate"
+                    Classes="primary"
+                    Content="Generate Signatures"
+                    MinWidth="180"
+                    Height="42"
+                    VerticalAlignment="Center"
+                    Click="BtnGenerate_OnClick"/>
+          </Grid>
+        </Border>
+
+        <!-- Log (fills the rest) -->
+        <Border Grid.Row="6" Classes="card" Padding="14">
+          <Grid RowDefinitions="Auto,8,Auto,*">
+            <ProgressBar x:Name="Progress" Minimum="0" Maximum="100" Value="0" IsVisible="False"/>
+            <TextBlock Grid.Row="2" Text="Log" FontWeight="SemiBold" Classes="muted" Margin="0,0,0,8"/>
+            <ScrollViewer Grid.Row="3">
+              <ItemsControl x:Name="LogList">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding}" Classes="muted"/>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <!-- RIGHT COLUMN -->
+      <Border Grid.Column="1" Classes="card" Padding="20" VerticalAlignment="Stretch">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="12">
+
+          <!-- Title -->
+          <TextBlock Text="Delivery Method" FontSize="18" FontWeight="Bold"/>
+
+          <!-- Mode -->
+          <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto" ColumnSpacing="22">
+            <RadioButton x:Name="RbSendEmails"
+                         Content="Send by Email"
+                         IsChecked="True"
+                         GroupName="DeliveryMode"/>
+            <RadioButton x:Name="RbDownloadZip"
+                         Grid.Column="1"
+                         Content="Download ZIP"
+                         GroupName="DeliveryMode"/>
+          </Grid>
+
+          <!-- Subject -->
+          <StackPanel Grid.Row="2" Spacing="6"
+                      IsEnabled="{Binding #RbSendEmails.IsChecked}">
+            <TextBlock Text="Subject" Classes="muted"/>
+            <TextBox x:Name="TbSubject" Watermark="Subject" Text="New Email Signature"/>
+          </StackPanel>
+
+          <!-- Body -->
+          <StackPanel Grid.Row="3" Spacing="6"
+                      IsEnabled="{Binding #RbSendEmails.IsChecked}">
+            <TextBlock Text="Message Body" Classes="muted"/>
+            <TextBox x:Name="TbBody"
+                     AcceptsReturn="True"
+                     MinHeight="120" MaxHeight="160"
+                     Text="Hi,&#10;&#10;Attached you will find your personalized email signature (HTML).&#10;&#10;Best regards,&#10;IT Team"/>
+          </StackPanel>
+
+          <!-- Manual PDF (non-clickable field + browse) -->
+          <Grid Grid.Row="4" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10"
+                IsEnabled="{Binding #RbSendEmails.IsChecked}">
+            <CheckBox x:Name="ChkAttachManual"
+                      Content="Attach manual (PDF)"
+                      VerticalAlignment="Center"
+                      IsChecked="False"/>
+            <TextBox Grid.Column="1"
+                     x:Name="TbManualPath"
+                     Watermark="No file selected"
+                     IsReadOnly="True"
+                     IsHitTestVisible="False"
+                     Focusable="False"
+                     IsTabStop="False"
+                     MaxLines="1"/>
+            <Button Grid.Column="2"
+                    x:Name="BtnBrowseManual"
+                    Classes="outline"
+                    Content="Browse…"
+                    MinWidth="110"
+                    IsEnabled="{Binding #ChkAttachManual.IsChecked}"
+                    Click="BtnChooseManual_OnClick"/>
+          </Grid>
+
+          <!-- SMTP settings -->
+          <Border Grid.Row="5"
+                  Background="#F8FAFF" BorderBrush="#E0E6F0" BorderThickness="1"
+                  CornerRadius="10" Padding="12"
+                  IsEnabled="{Binding #RbSendEmails.IsChecked}">
+            <StackPanel Spacing="10">
+              <TextBlock Text="SMTP Settings" FontWeight="SemiBold"/>
+
+              <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="SMTP Host" Classes="muted" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3"
+                           x:Name="TbSmtpHost" Watermark="smtp.company.com" Text="smtp.office365.com"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Port" Classes="muted" VerticalAlignment="Center"/>
+                <NumericUpDown Grid.Row="1" Grid.Column="1"
+                               x:Name="NumSmtpPort" Minimum="1" Maximum="65535" Value="587"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="SSL/TLS" Classes="muted" VerticalAlignment="Center"/>
+                <ToggleSwitch Grid.Row="1" Grid.Column="3" x:Name="TgUseSsl" IsChecked="False" HorizontalAlignment="Left"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Username" Classes="muted" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3"
+                           x:Name="TbSmtpUser" Watermark="login@company.com"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Password" Classes="muted" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="3"
+                           x:Name="TbSmtpPassword" Watermark="Password"/>
+              </Grid>
+
+              <!-- Hint + test button -->
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Test Connection" Classes="muted" VerticalAlignment="Center"/>
+                <Button Grid.Column="1" x:Name="BtnTestSmtp"
+                        Classes="outline"
+                        Content="Test SMTP"
+                        MinWidth="120" Height="34"
+                        Click="BtnTestSmtp_OnClick"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- Send emails button -->
+          <Grid Grid.Row="6" ColumnDefinitions="*,Auto" Margin="0,8,0,0" VerticalAlignment="Bottom">
+            <TextBlock x:Name="TxtActionHint"
+                       Text="Each recipient will receive their own HTML file."
+                       Classes="muted" VerticalAlignment="Center"
+                       MaxWidth="520" TextWrapping="Wrap"/>
+            <Button Grid.Column="1" x:Name="BtnRun"
+                    Classes="primary" Content="Send Emails"
+                    MinWidth="180"
+                    Click="BtnRun_OnClick"/>
+          </Grid>
+        </Grid>
+      </Border>
+    </Grid>
   </Grid>
 </Window>
