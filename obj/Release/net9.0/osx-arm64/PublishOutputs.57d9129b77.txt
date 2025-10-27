@@ -1,0 +1,5 @@
+C:\Users\mdomn\RiderProjects\SignatureGenerator\bin\Release\net9.0\osx-arm64\publish\SignatureGenerator.pdb
+C:\Users\mdomn\RiderProjects\SignatureGenerator\bin\Release\net9.0\osx-arm64\publish\libAvaloniaNative.dylib
+C:\Users\mdomn\RiderProjects\SignatureGenerator\bin\Release\net9.0\osx-arm64\publish\libHarfBuzzSharp.dylib
+C:\Users\mdomn\RiderProjects\SignatureGenerator\bin\Release\net9.0\osx-arm64\publish\libSkiaSharp.dylib
+C:\Users\mdomn\RiderProjects\SignatureGenerator\bin\Release\net9.0\osx-arm64\publish\SignatureGenerator

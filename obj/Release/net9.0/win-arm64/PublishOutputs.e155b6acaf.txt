@@ -1,0 +1,2 @@
+C:\Users\mdomn\RiderProjects\SignatureGenerator\bin\Release\net9.0\win-arm64\publish\SignatureGenerator.pdb
+C:\Users\mdomn\RiderProjects\SignatureGenerator\bin\Release\net9.0\win-arm64\publish\SignatureGenerator.exe

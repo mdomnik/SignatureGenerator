@@ -1,0 +1,2 @@
+C:\Users\mdomn\TaskZone\NCFootersProgram\SignatureGeneratorProgram\SignatureGenerator\bin\Release\net9.0\win-x64\publish\SignatureGenerator.pdb
+C:\Users\mdomn\TaskZone\NCFootersProgram\SignatureGeneratorProgram\SignatureGenerator\bin\Release\net9.0\win-x64\publish\SignatureGenerator.exe
